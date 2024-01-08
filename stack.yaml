@@ -1,0 +1,125 @@
+version: "3.5"
+services:
+  traefik:
+    image: traefik:v3.0.0-beta3
+    command:
+      - --api=true
+      - --api.insecure=true
+      - --api.dashboard=true
+      - --providers.swarm=true
+      - --providers.swarm.watch=true
+      - --providers.file.directory=/traefik
+      - --providers.file.watch=true
+      - --entrypoints.postgres.address=:5432
+      - --accesslog
+      - --log.level=DEBUG
+    ports:
+      - target: 8080
+        published: 8080
+        protocol: tcp
+        mode: host
+      - target: 5432
+        published: 5432
+        protocol: tcp
+        mode: host
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik.dynamic.conf.yaml:/traefik/dynamic.conf.yaml
+    networks:
+      - traefik
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.services.dummy-svc.loadbalancer.server.port=9999"
+        - "traefik.http.routers.traefik.service=api@internal"
+        - "traefik.http.routers.traefik.middlewares=strip"
+        - "traefik.http.middlewares.strip.stripprefix.prefixes=/traefik"
+
+  postgres-n1:
+    image: pgedge/postgres:1.8
+    environment:
+      - "NODE_NAME=n1"
+    ports:
+      - target: 5432
+        published: 6431
+        protocol: tcp
+        mode: host
+    volumes:
+      - "./db.json:/home/pgedge/db.json"
+    networks:
+      - database
+    deploy:
+      labels:
+        - "node_name=n1"
+        - "traefik.enable=false"
+
+  pgcat-n1:
+    image: pgedge/pgcat:1.0
+    ports:
+      - target: 6432
+        published: 6432
+        protocol: tcp
+        mode: host
+    volumes:
+      - "./pgcat.toml:/etc/pgcat/pgcat.toml"
+    networks:
+      - traefik
+      - database
+    deploy:
+      labels:
+        - "node_name=n1"
+        - "traefik.enable=true"
+        - "traefik.docker.network=db_traefik"
+        - "traefik.tcp.routers.router-db-1.rule=HostSNI(`n1`) || (HostSNI(`*`) && !Host(`n2`))"
+        - "traefik.tcp.routers.router-db-1.tls=true"
+        - "traefik.tcp.routers.router-db-1.tls.options=default"
+        - "traefik.tcp.routers.router-db-1.entrypoints=postgres"
+        - "traefik.tcp.routers.router-db-1.service=svc-db-1"
+        - "traefik.tcp.services.svc-db-1.loadbalancer.server.port=6432"
+
+  postgres-n2:
+    image: pgedge/postgres:1.8
+    environment:
+      - "NODE_NAME=n1"
+    ports:
+      - target: 5432
+        published: 6441
+        protocol: tcp
+        mode: host
+    volumes:
+      - "./db.json:/home/pgedge/db.json"
+    networks:
+      - database
+    deploy:
+      labels:
+        - "node_name=n2"
+        - "traefik.enable=false"
+
+  pgcat-n2:
+    image: pgedge/pgcat:1.0
+    ports:
+      - target: 6432
+        published: 6442
+        protocol: tcp
+        mode: host
+    volumes:
+      - "./pgcat.toml:/etc/pgcat/pgcat.toml"
+    networks:
+      - traefik
+      - database
+    deploy:
+      labels:
+        - "node_name=n2"
+        - "traefik.enable=true"
+        - "traefik.docker.network=db_traefik"
+        - "traefik.tcp.routers.router-db-2.rule=HostSNI(`n2`) || (HostSNI(`*`) && !Host(`n1`))"
+        - "traefik.tcp.routers.router-db-2.tls=true"
+        - "traefik.tcp.routers.router-db-2.tls.options=default"
+        - "traefik.tcp.routers.router-db-2.entrypoints=postgres"
+        - "traefik.tcp.routers.router-db-2.service=svc-db-2"
+        - "traefik.tcp.services.svc-db-2.loadbalancer.server.port=6432"
+
+networks:
+  traefik:
+  database:

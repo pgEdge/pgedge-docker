@@ -1,0 +1,35 @@
+[general]
+host = "0.0.0.0"
+port = 6432
+autoreload = 10000
+dns_cache_enabled = true
+admin_username = "pgcat_admin"
+admin_password = "k6uu4od8r0P6lA11Oep648KC"
+prepared_statements = true
+prepared_statements_cache_size = 500
+
+[pools.defaultdb]
+pool_size = 50
+min_pool_size = 1
+pool_mode = "transaction"
+query_parser_enabled = false
+auth_query = "SELECT usename, passwd FROM pg_shadow WHERE usename='$1'"
+auth_query_user = "pgcat_auth"
+auth_query_password = "5Y306TW24540dEnyxp3mQBwH"
+
+[pools.defaultdb.users.0]
+pool_size = 16
+min_pool_size = 1
+pool_mode = "session"
+username = "admin"
+
+[pools.defaultdb.users.1]
+pool_size = 50
+min_pool_size = 1
+username = "app"
+
+[pools.defaultdb.shards.0]
+servers = [
+  ["postgres-n1", 5432, "Primary"]
+]
+database = "defaultdb"
