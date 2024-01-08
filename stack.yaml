@@ -62,7 +62,7 @@ services:
         protocol: tcp
         mode: host
     volumes:
-      - "./pgcat.toml:/etc/pgcat/pgcat.toml"
+      - "./pgcat-n1.toml:/etc/pgcat/pgcat.toml"
     networks:
       - traefik
       - database
@@ -81,7 +81,7 @@ services:
   postgres-n2:
     image: pgedge/postgres:1.8
     environment:
-      - "NODE_NAME=n1"
+      - "NODE_NAME=n2"
     ports:
       - target: 5432
         published: 6441
@@ -104,7 +104,7 @@ services:
         protocol: tcp
         mode: host
     volumes:
-      - "./pgcat.toml:/etc/pgcat/pgcat.toml"
+      - "./pgcat-n2.toml:/etc/pgcat/pgcat.toml"
     networks:
       - traefik
       - database
