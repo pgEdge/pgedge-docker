@@ -10,6 +10,18 @@ This example runs on both MacOS and Linux. You'll need a local swarm initialized
 docker swarm init
 ```
 
+## Prerequisites
+
+This example acts like a two-node cluster, with nodes named `n1` and `n2`.
+We'll run these nodes locally (in Docker) but would still like to refer to
+these names when connecting from `psql` or other clients. For that to work,
+add these entries to your `/etc/hosts` file:
+
+```
+127.0.0.1 n1
+127.0.0.1 n2
+```
+
 ## Usage
 
 In this directory, run:
@@ -53,30 +65,18 @@ You can see how the ports are exposed in the `stack.yaml` file.
 Here's an example:
 
 ```
-PGPASSWORD=uFR44yr69C4mZa72g3JQ37GX PGSSLMODE=require psql -h localhost -p 5432 -U admin defaultdb
+PGPASSWORD=uFR44yr69C4mZa72g3JQ37GX PGSSLMODE=require psql -h n1 -p 5432 -U admin defaultdb
 ```
 
 Note the password is configured in the `db.json` file.
 
 You can also reference the [Makefile](./Makefile) for some commands.
 
-## Notes
+## Traefik Notes
 
 Traefik _can_ be deployed in a separate stack. It monitors for containers to proxy
 to using the Docker API.
 
 If you want to experiment with different `HostSNI` values in the Traefik
 configuration, you can change the `HostSNI` value in the `stack.yaml` file on
-the `pgcat` service. A trick for testing this on localhost is to add an entry
-to your `/etc/hosts` file e.g:
-
-```
-127.0.0.1 n1
-127.0.0.1 n2
-```
-
-Then you can use those hostnames to connect to the nodes, e.g.
-
-```
-PGPASSWORD=uFR44yr69C4mZa72g3JQ37GX PGSSLMODE=require psql -h n1 -p 5432 -U admin defaultdb
-```
+the `pgcat` service.
