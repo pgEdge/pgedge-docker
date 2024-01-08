@@ -22,6 +22,14 @@ add these entries to your `/etc/hosts` file:
 127.0.0.1 n2
 ```
 
+## Volumes
+
+At the moment the container internally uses a user named `pgedge` with UID `1020`.
+To mount a volume from the host, the host directory must be owned by a user with
+UID `1020` on the host. We'll look at removing this requirement soon. For now,
+you can either do that, or don't use volumes in testing. See the commented-out
+volume and PG_DATA_DIR configuration in stack.yaml.
+
 ## Usage
 
 In this directory, run:
