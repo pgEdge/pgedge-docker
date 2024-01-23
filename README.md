@@ -13,18 +13,30 @@ users (see below).
 When run, the [Spock](https://github.com/pgedge/spock) extension is created and
 Spock nodes and subscriptions are automatically created.
 
-To create tables and begin replication, you can use the `spock.replicate_ddl`
-function to run some DDL commands and then add the tables to the replication
-set. For example:
+One way to create tables on all nodes is the `spock.replicate_ddl`. For example,
+connect to `n1` with `psql` and then run:
 
 ```sql
 SELECT spock.replicate_ddl('CREATE TABLE public.users (id uuid, name text, PRIMARY KEY (id))');
+```
+
+The `users` table will now exist on all nodes. Now you can add the table to the
+default replication set by executing this command on all nodes:
+
+```sql
 SELECT spock.repset_add_all_tables('default', ARRAY['public']);
 ```
 
-More conveniences for DDL are coming up soon. You can also use
-[pgEdge Cloud](https://www.pgedge.com/products/pgedge-cloud) to automate this
-process.
+Having done that, you can now insert on any node and the data will be replicated
+to all the other nodes. For example:
+
+```sql
+INSERT INTO users (id) SELECT gen_random_uuid();
+```
+
+There are various ways to automate these steps and more conveniences for DDL are
+coming soon. You can also use [pgEdge Cloud](https://www.pgedge.com/products/pgedge-cloud)
+to automate this process.
 
 ## Examples
 

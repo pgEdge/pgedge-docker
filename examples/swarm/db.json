@@ -15,6 +15,13 @@
   ],
   "users": [
     {
+      "username": "app",
+      "password": "0Osh8bqE5EokT3I3Z78MQ344",
+      "superuser": false,
+      "service": "postgres",
+      "type": "application"
+    },
+    {
       "username": "admin",
       "password": "uFR44yr69C4mZa72g3JQ37GX",
       "superuser": true,
@@ -31,12 +38,14 @@
     {
       "username": "pgcat_auth",
       "password": "5Y306TW24540dEnyxp3mQBwH",
+      "superuser": false,
       "service": "postgres",
       "type": "pooler_auth"
     },
     {
       "username": "pgcat_admin",
       "password": "k6uu4od8r0P6lA11Oep648KC",
+      "superuser": false,
       "service": "pgcat",
       "type": "other"
     }

@@ -42,7 +42,7 @@ ENV PATH="/opt/pgedge/pg${PGV}/bin:/opt/pgedge:${PATH}"
 ENV PGCONF="${PGDATA}/postgresql.conf"
 ENV PGHBA="${PGDATA}/pg_hba.conf"
 
-RUN python3 -c "$(curl -fsSL https://pgedge-upstream.s3.amazonaws.com/REPO/install.py)"
+RUN python3 -c "$(curl -fsSL https://pgedge-download.s3.amazonaws.com/REPO/install.py)"
 
 RUN ./pgedge/ctl install pgedge -U ${DB_USERNAME} -d ${DB_NAME} -P ${INIT_PASSWORD} --pg ${PGV} \
     && ./pgedge/ctl um install vector \
