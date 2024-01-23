@@ -4,39 +4,9 @@ This repository contains the Dockerfile used to build
 [pgedge/pgedge](https://hub.docker.com/repository/docker/pgedge/pgedge)
 on Docker Hub.
 
-## Usage
-
 See the example commands below for running pgEdge containers in Docker. You will
 need to provide a JSON configuration file that specifies the database nodes and
-users (see below).
-
-When run, the [Spock](https://github.com/pgedge/spock) extension is created and
-Spock nodes and subscriptions are automatically created.
-
-One way to create tables on all nodes is the `spock.replicate_ddl`. For example,
-connect to `n1` with `psql` and then run:
-
-```sql
-SELECT spock.replicate_ddl('CREATE TABLE public.users (id uuid, name text, PRIMARY KEY (id))');
-```
-
-The `users` table will now exist on all nodes. Now you can add the table to the
-default replication set by executing this command on all nodes:
-
-```sql
-SELECT spock.repset_add_all_tables('default', ARRAY['public']);
-```
-
-Having done that, you can now insert on any node and the data will be replicated
-to all the other nodes. For example:
-
-```sql
-INSERT INTO users (id) SELECT gen_random_uuid();
-```
-
-There are various ways to automate these steps and more conveniences for DDL are
-coming soon. You can also use [pgEdge Cloud](https://www.pgedge.com/products/pgedge-cloud)
-to automate this process.
+users.
 
 ## Examples
 
@@ -63,6 +33,37 @@ any real deployment.
 ### Multi-Node
 
 A Docker Swarm example of a two node cluster is located at [examples/swarm](examples/swarm).
+
+## Enabling Replication
+
+When the container runs, the [Spock](https://github.com/pgedge/spock) extension
+is created and replication subscriptions are _automatically created_.
+
+At this point you'll want to run your migrations or otherwise create tables. One
+way to create tables on all nodes is the `spock.replicate_ddl` function. For example,
+you can connect to a node with `psql` and then run:
+
+```sql
+SELECT spock.replicate_ddl('CREATE TABLE public.users (id uuid, name text, PRIMARY KEY (id))');
+```
+
+The `users` table will now exist _on all nodes_. Now you can add the table to the
+default replication set by executing this command on all nodes:
+
+```sql
+SELECT spock.repset_add_all_tables('default', ARRAY['public']);
+```
+
+Having done that, you can now insert on any node and the data will be replicated
+to all the other nodes. For example:
+
+```sql
+INSERT INTO users (id) SELECT gen_random_uuid();
+```
+
+There are various ways to automate these steps and more conveniences for DDL are
+coming soon. You can also use [pgEdge Cloud](https://www.pgedge.com/products/pgedge-cloud)
+to automate this process.
 
 ## Database Configuration
 
