@@ -1,11 +1,29 @@
 # pgEdge Docker
 
-This repository contains a pgEdge Dockerfile and examples showing how to run
-a small pgEdge cluster in Docker Swarm.
-
-The Dockerfile here is used to build the `pgedge/pgedge` image on Docker Hub.
+This repository contains the Dockerfile used to build
+[pgedge/pgedge](https://hub.docker.com/repository/docker/pgedge/pgedge)
+on Docker Hub.
 
 ## Examples
+
+### Single Node
+
+To run a single node you can use this command:
+
+```
+docker run -it --rm -v "./examples/singlenode/db.json:/home/pgedge/db.json" -p 5432:5432 pgedge/pgedge
+```
+
+You can then log in using `psql` with the following command:
+
+```
+PGPASSWORD=uFR44yr69C4mZa72g3JQ37GX PGSSLMODE=require psql -h localhost -p 5432 -U admin defaultdb
+```
+
+And of course you should customize the user passwords before using this in
+any real deployment.
+
+### Multi-Node
 
 See [examples/swarm](examples/swarm) for a Docker Swarm example of a two node
 cluster. This example can be run on both MacOS and Linux.
@@ -13,7 +31,8 @@ cluster. This example can be run on both MacOS and Linux.
 ## Database Configuration
 
 A simple JSON file is used to configure the database nodes. You can customize
-this according to your needs, including adding more nodes and users.
+this according to your needs, including adding more nodes and users. Always
+remember to change the passwords!
 
 ```json
 {
