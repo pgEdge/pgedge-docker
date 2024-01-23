@@ -11,13 +11,16 @@ on Docker Hub.
 To run a single node you can use this command:
 
 ```
-docker run -it --rm -v "./examples/singlenode/db.json:/home/pgedge/db.json" -p 5432:5432 pgedge/pgedge
+docker run -it --rm -p 5432:5432 \
+  -v "./examples/singlenode/db.json:/home/pgedge/db.json" \
+  pgedge/pgedge
 ```
 
 You can then log in using `psql` with the following command:
 
 ```
-PGPASSWORD=uFR44yr69C4mZa72g3JQ37GX PGSSLMODE=require psql -h localhost -p 5432 -U admin defaultdb
+PGPASSWORD=uFR44yr69C4mZa72g3JQ37GX \
+psql -h localhost -p 5432 -U admin defaultdb
 ```
 
 And of course you should customize the user passwords before using this in
