@@ -1,6 +1,5 @@
 {
   "id": "1111",
-  "tenant_id": "7777",
   "name": "defaultdb",
   "port": 5432,
   "nodes": [

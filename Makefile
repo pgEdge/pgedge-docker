@@ -1,18 +1,13 @@
 
-export PGPASSWORD=uFR44yr69C4mZa72g3JQ37GX
+GIT_REVISION=$(shell git rev-parse --short HEAD)
 
-.PHONY: run
-run:
-	docker stack deploy -c ./stack.yaml db
+IMAGE_NAME=pgedge/pgedge
 
-.PHONY: stop
-stop:
-	docker stack rm db
+.PHONY: build
+build:
+	docker build -t $(IMAGE_NAME) -t $(IMAGE_NAME):$(GIT_REVISION) .
 
-.PHONY: init
-init:
-	docker swarm init
-
-.PHONY: connect
-connect:
-	PGSSLMODE=require psql -h localhost -p 5432 -U admin defaultdb
+.PHONY: push
+push:
+	docker push $(IMAGE_NAME):$(GIT_REVISION)
+	docker push $(IMAGE_NAME):latest
