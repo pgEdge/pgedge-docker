@@ -1,3 +1,24 @@
+# pgEdge Docker
+
+This repository contains a pgEdge Dockerfile and examples showing how to run
+a small pgEdge cluster in Docker Swarm.
+
+## Docker Image
+
+The Dockerfile in this repository corresponds to the `pgedge/pgedge` image on
+Docker Hub.
+
+## Examples
+
+See [examples/swarm](examples/swarm) for a Docker Swarm example of a two node
+cluster. This example can be run on both MacOS and Linux.
+
+## Database Configuration
+
+A simple JSON file is used to configure the database nodes. You can customize
+this according to your needs, including adding more nodes and users.
+
+```json
 {
   "name": "defaultdb",
   "port": 5432,
@@ -42,3 +63,4 @@
     }
   ]
 }
+```
