@@ -3,10 +3,7 @@
 This repository contains a pgEdge Dockerfile and examples showing how to run
 a small pgEdge cluster in Docker Swarm.
 
-## Docker Image
-
-The Dockerfile in this repository corresponds to the `pgedge/pgedge` image on
-Docker Hub.
+The Dockerfile here is used to build the `pgedge/pgedge` image on Docker Hub.
 
 ## Examples
 
