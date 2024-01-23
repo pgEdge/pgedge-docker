@@ -2,6 +2,8 @@
 # Copied from db.json: admin user password
 export PGPASSWORD=uFR44yr69C4mZa72g3JQ37GX
 
+NODE_NAME?=n1
+
 .PHONY: run
 run:
 	docker stack deploy -c ./stack.yaml db
@@ -19,4 +21,4 @@ connect:
 # Requires n1 and n2 entries in /etc/hosts
 # 127.0.0.1 n1
 # 127.0.0.1 n2
-	PGSSLMODE=require psql -h n1 -p 5432 -U admin defaultdb
+	PGSSLMODE=require psql -h $(NODE_NAME) -p 5432 -U admin defaultdb

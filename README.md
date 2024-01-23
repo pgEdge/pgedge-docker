@@ -4,6 +4,28 @@ This repository contains the Dockerfile used to build
 [pgedge/pgedge](https://hub.docker.com/repository/docker/pgedge/pgedge)
 on Docker Hub.
 
+## Usage
+
+See the example commands below for running pgEdge containers in Docker. You will
+need to provide a JSON configuration file that specifies the database nodes and
+users (see below).
+
+When run, the [Spock](https://github.com/pgedge/spock) extension is created and
+Spock nodes and subscriptions are automatically created.
+
+To create tables and begin replication, you can use the `spock.replicate_ddl`
+function to run some DDL commands and then add the tables to the replication
+set. For example:
+
+```sql
+SELECT spock.replicate_ddl('CREATE TABLE public.users (id uuid, name text, PRIMARY KEY (id))');
+SELECT spock.repset_add_all_tables('default', ARRAY['public']);
+```
+
+More conveniences for DDL are coming up soon. You can also use
+[pgEdge Cloud](https://www.pgedge.com/products/pgedge-cloud) to automate this
+process.
+
 ## Examples
 
 ### Single Node
@@ -28,8 +50,7 @@ any real deployment.
 
 ### Multi-Node
 
-See [examples/swarm](examples/swarm) for a Docker Swarm example of a two node
-cluster. This example can be run on both MacOS and Linux.
+A Docker Swarm example of a two node cluster is located at [examples/swarm](examples/swarm).
 
 ## Database Configuration
 
