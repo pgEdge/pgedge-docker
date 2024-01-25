@@ -6,19 +6,19 @@ PG_VERSION=${PG_VERSION:-16}
 PG_BINARY=/opt/pgedge/pg${PG_VERSION}/bin/postgres
 
 DEFAULT_DATA_DIR=/opt/pgedge/data/pg${PG_VERSION}
-PG_DATA_DIR=${PG_DATA_DIR:-${DEFAULT_DATA_DIR}}
+PGDATA=${PGDATA:-${DEFAULT_DATA_DIR}}
 
 # Copy preexisting data directory if the data directory was customized
 # and its currently empty
-if [[ "${PG_DATA_DIR}" != "${DEFAULT_DATA_DIR}" ]]; then
-    chown pgedge:pgedge ${PG_DATA_DIR}
-    chmod 750 ${PG_DATA_DIR}
+if [[ "${PGDATA}" != "${DEFAULT_DATA_DIR}" ]]; then
+    mkdir -p ${PGDATA}
+    chmod 700 ${PGDATA} || true
     # Use postgresql.conf as a marker to decide if the data dir is empty
-    if [[ -f "${PG_DATA_DIR}/postgresql.conf" ]]; then
-        echo "**** pgEdge: ${PG_DATA_DIR} is not empty, skipping copy ****"
+    if [[ -f "${PGDATA}/postgresql.conf" ]]; then
+        echo "**** pgEdge: ${PGDATA} is not empty, skipping copy ****"
     else
-        echo "**** pgEdge: copying ${DEFAULT_DATA_DIR} to ${PG_DATA_DIR} ****"
-        cp -R ${DEFAULT_DATA_DIR}/* ${PG_DATA_DIR}
+        echo "**** pgEdge: copying ${DEFAULT_DATA_DIR} to ${PGDATA} ****"
+        cp -R ${DEFAULT_DATA_DIR}/* ${PGDATA}
     fi
 fi
 
@@ -63,5 +63,5 @@ else
 fi
 
 # Run Postgres in the foreground
-echo "**** pgEdge: starting postgres with data directory ${PG_DATA_DIR} ****"
-${PG_BINARY} -D ${PG_DATA_DIR} 2>&1
+echo "**** pgEdge: starting postgres with data directory ${PGDATA} ****"
+${PG_BINARY} -D ${PGDATA} 2>&1

@@ -25,6 +25,10 @@ RUN useradd -u ${PGEDGE_USER_ID} -m pgedge -s /bin/bash && \
     su - pgedge -c "pip3 install --user psycopg[binary]==3.1.10" && \
     dnf remove -y python-pip
 
+ENV PGDATA /data/pgdata
+RUN mkdir -p ${PGDATA} && chown -R pgedge:pgedge ${PGDATA} && chmod 777 ${PGDATA}
+VOLUME /data
+
 USER pgedge
 WORKDIR /opt
 

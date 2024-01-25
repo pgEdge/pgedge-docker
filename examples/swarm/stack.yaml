@@ -40,7 +40,7 @@ services:
     image: pgedge/pgedge:latest
     environment:
       - "NODE_NAME=n1"
-      - "PG_DATA_DIR=/data"
+      - "PGDATA=/data/pg"
     ports:
       - target: 5432
         published: 6431
@@ -48,7 +48,7 @@ services:
         mode: host
     volumes:
       - "./db.json:/home/pgedge/db.json"
-      - "./data/n1:/data"
+      - "n1:/data"
     networks:
       - database
     deploy:
@@ -84,7 +84,7 @@ services:
     image: pgedge/pgedge:latest
     environment:
       - "NODE_NAME=n2"
-      - "PG_DATA_DIR=/data"
+      - "PGDATA=/data/pg"
     ports:
       - target: 5432
         published: 6441
@@ -92,7 +92,7 @@ services:
         mode: host
     volumes:
       - "./db.json:/home/pgedge/db.json"
-      - "./data/n2:/data"
+      - "n2:/data"
     networks:
       - database
     deploy:
@@ -127,3 +127,7 @@ services:
 networks:
   traefik:
   database:
+
+volumes:
+  n1:
+  n2:
