@@ -8,6 +8,20 @@ PG_BINARY=/opt/pgedge/pg${PG_VERSION}/bin/postgres
 DEFAULT_DATA_DIR=/opt/pgedge/data/pg${PG_VERSION}
 PG_DATA_DIR=${PG_DATA_DIR:-${DEFAULT_DATA_DIR}}
 
+# Copy preexisting data directory if the data directory was customized
+# and its currently empty
+if [[ "${PG_DATA_DIR}" != "${DEFAULT_DATA_DIR}" ]]; then
+    chown pgedge:pgedge ${PG_DATA_DIR}
+    chmod 750 ${PG_DATA_DIR}
+    # Use postgresql.conf as a marker to decide if the data dir is empty
+    if [[ -f "${PG_DATA_DIR}/postgresql.conf" ]]; then
+        echo "**** pgEdge: ${PG_DATA_DIR} is not empty, skipping copy ****"
+    else
+        echo "**** pgEdge: copying ${DEFAULT_DATA_DIR} to ${PG_DATA_DIR} ****"
+        cp -R ${DEFAULT_DATA_DIR}/* ${PG_DATA_DIR}
+    fi
+fi
+
 # Locate the database specification file
 if [[ -f "/home/pgedge/db.json" ]]; then
     SPEC_PATH="/home/pgedge/db.json"
@@ -34,18 +48,6 @@ if [[ -n "${SPEC_PATH}" ]]; then
         fi
         echo "*:*:*:pgedge:${PGEDGE_PW}" >>~/.pgpass
         chmod 0600 ~/.pgpass
-    fi
-
-    # Copy preexisting data directory if the data directory was customized
-    # and its currently empty
-    if [[ "${PG_DATA_DIR}" != "${DEFAULT_DATA_DIR}" ]]; then
-        # Use postgresql.conf as a marker to decide if the data dir is empty
-        if [[ -f "${PG_DATA_DIR}/postgresql.conf" ]]; then
-            echo "**** pgEdge: ${PG_DATA_DIR} is not empty, skipping copy ****"
-        else
-            echo "**** pgEdge: copying ${DEFAULT_DATA_DIR} to ${PG_DATA_DIR} ****"
-            cp -R ${DEFAULT_DATA_DIR}/* ${PG_DATA_DIR}
-        fi
     fi
 
     # Spawn init script which creates users and subscriptions

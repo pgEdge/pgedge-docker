@@ -6,6 +6,7 @@ NODE_NAME?=n1
 
 .PHONY: run
 run:
+	mkdir -p ./data/n1 ./data/n2
 	docker stack deploy -c ./stack.yaml db
 
 .PHONY: stop
