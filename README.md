@@ -34,6 +34,35 @@ any real deployment.
 
 A Docker Swarm example of a two node cluster is located at [examples/swarm](examples/swarm).
 
+## Data Volumes
+
+This image is compatible with Docker volumes and bind mounts. The configuration
+for both is similar. Because PostgreSQL requires the data directory to be owned
+by the user running the database, the `PGDATA` directory should be specified as
+a subdirectory of the volume mount.
+
+By default, this image uses the following approach for volume configuration:
+
+- `/data` is the volume mount point
+- `/data/pgdata` is the PostgreSQL data directory (`PGDATA`)
+
+An example Docker compose spec that bind mounts the host folder `./n1` to the
+container's `/data` folder looks like this:
+
+```yaml
+postgres-n1:
+  image: pgedge/pgedge:latest
+  environment:
+    - 'NODE_NAME=n1'
+    - 'PGDATA=/data/pgdata'
+  volumes:
+    - './db.json:/home/pgedge/db.json'
+    - './n1:/data'
+```
+
+You can also take a look at [examples/swarm/stack.yaml](examples/swarm/stack.yaml)
+for an example of using Docker volumes.
+
 ## Enabling Replication
 
 When the container runs, the [Spock](https://github.com/pgedge/spock) extension
