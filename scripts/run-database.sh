@@ -2,13 +2,33 @@
 
 set -e
 
-PG_VERSION=${PG_VERSION:-16}
-PG_BINARY=/opt/pgedge/pg${PG_VERSION}/bin/postgres
+PGV=${PGV:-16}
 
-DEFAULT_DATA_DIR=/opt/pgedge/data/pg${PG_VERSION}
-PG_DATA_DIR=${PG_DATA_DIR:-${DEFAULT_DATA_DIR}}
+# Error if PGDATA is not set
+if [[ ! -n "${PGDATA}" ]]; then
+    echo "**** ERROR: PGDATA must be set ****"
+    exit 1
+fi
 
-# Locate the database specification file
+# An initial data directory is included in the base image here. We'll copy
+# it to PGDATA and proceed with the PGDATA directory as the real db.
+INIT_DATA_DIR=/opt/pgedge/data/pg${PGV}
+
+# Set permissions on PGDATA in a way that will make Postgres happy. Don't fail
+# here on error, since Postgres will complain later if there is a problem.
+mkdir -p ${PGDATA}
+chmod 700 ${PGDATA} || true
+
+# Initialize PGDATA directory if it's empty. Note when the container restarts
+# with an existing volume, this copying should NOT occur.
+PGCONF="${PGDATA}/postgresql.conf"
+if [[ ! -f "${PGCONF}" ]]; then
+    IS_SETUP="1"
+    echo "**** pgEdge: copying ${INIT_DATA_DIR} to ${PGDATA} ****"
+    cp -R -u -p ${INIT_DATA_DIR}/* ${PGDATA}
+fi
+
+# Detect the database specification file
 if [[ -f "/home/pgedge/db.json" ]]; then
     SPEC_PATH="/home/pgedge/db.json"
 fi
@@ -16,11 +36,12 @@ fi
 # Initialize users and subscriptions in the background if there was a spec
 if [[ -n "${SPEC_PATH}" ]]; then
 
-    # Write the database name as cron.database_name in the configuration file
-    NAME=$(jq -r ".name" "${SPEC_PATH}")
-    echo "**** pgEdge: database name is ${NAME} ****"
-    PG_CONF=/opt/pgedge/data/pg${PG_VERSION}/postgresql.conf
-    echo "cron.database_name = '${NAME}'" >>${PG_CONF}
+    if [[ "${IS_SETUP}" = "1" ]]; then
+        # Write the database name as cron.database_name in the configuration file
+        NAME=$(jq -r ".name" "${SPEC_PATH}")
+        echo "**** pgEdge: database name is ${NAME} ****"
+        echo "cron.database_name = '${NAME}'" >>${PGCONF}
+    fi
 
     # Write pgedge password to .pgpass if needed
     if [[ ! -e ~/.pgpass || -z $(awk -F ':' '$4 == "pgedge"' ~/.pgpass) ]]; then
@@ -36,30 +57,11 @@ if [[ -n "${SPEC_PATH}" ]]; then
         chmod 0600 ~/.pgpass
     fi
 
-    # Copy preexisting data directory if the data directory was customized
-    # and its currently empty
-    if [[ "${PG_DATA_DIR}" != "${DEFAULT_DATA_DIR}" ]]; then
-        # Use postgresql.conf as a marker to decide if the data dir is empty
-        if [[ -f "${PG_DATA_DIR}/postgresql.conf" ]]; then
-            echo "**** pgEdge: ${PG_DATA_DIR} is not empty, skipping copy ****"
-        else
-            echo "**** pgEdge: copying ${DEFAULT_DATA_DIR} to ${PG_DATA_DIR} ****"
-            cp -R ${DEFAULT_DATA_DIR}/* ${PG_DATA_DIR}
-        fi
-    fi
-
     # Spawn init script which creates users and subscriptions
     echo "**** pgEdge: starting init script in background ****"
-    PG_VERSION=${PG_VERSION} python3 /home/pgedge/scripts/init-database.py &
-
-else
-    echo "**** WARNING: no pgEdge node spec found ****"
-    # If REQUIRE_SPEC is set, exit
-    if [[ -n "${REQUIRE_SPEC}" ]]; then
-        exit 1
-    fi
+    PGV=${PGV} python3 /home/pgedge/scripts/init-database.py &
 fi
 
 # Run Postgres in the foreground
-echo "**** pgEdge: starting postgres with data directory ${PG_DATA_DIR} ****"
-${PG_BINARY} -D ${PG_DATA_DIR} 2>&1
+echo "**** pgEdge: starting postgres with PGDATA=${PGDATA} ****"
+/opt/pgedge/pg${PGV}/bin/postgres -D ${PGDATA} 2>&1

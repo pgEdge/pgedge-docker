@@ -145,7 +145,7 @@ def get_admin_creds(secret) -> Tuple[str, str]:
 
 
 def get_superuser_roles() -> str:
-    pg_version = os.getenv("PG_VERSION")
+    pg_version = os.getenv("PGV")
     if pg_version == "15":
         return ", ".join(
             [
@@ -301,8 +301,8 @@ def main():
 
     # Bootstrap users and the primary database by connecting to the "init"
     # database which is built into the Docker image
-    init_dbname = os.environ.get("DB_NAME")
-    init_username = os.environ.get("DB_USERNAME")
+    init_dbname = os.environ.get("INIT_DATABASE")
+    init_username = os.environ.get("INIT_USERNAME")
     init_password = os.environ.get("INIT_PASSWORD")
     init_dsn = dsn(dbname=init_dbname, user=init_username, pw=init_password)
     if not can_connect(init_dsn) and can_connect(local_dsn):
