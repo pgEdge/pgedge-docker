@@ -40,7 +40,7 @@ services:
     image: pgedge/pgedge:latest
     environment:
       - "NODE_NAME=n1"
-      - "PGDATA=/data/pg"
+      - "PGDATA=/data/pgdata"
     ports:
       - target: 5432
         published: 6431
@@ -84,7 +84,7 @@ services:
     image: pgedge/pgedge:latest
     environment:
       - "NODE_NAME=n2"
-      - "PGDATA=/data/pg"
+      - "PGDATA=/data/pgdata"
     ports:
       - target: 5432
         published: 6441
