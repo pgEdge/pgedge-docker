@@ -69,7 +69,7 @@ ENV PATH="/opt/pgedge/pg${PGV}/bin:/opt/pgedge:${PATH}"
 # Install pgEdge Postgres binaries and pgvector
 ARG PGEDGE_INSTALL_URL="https://pgedge-download.s3.amazonaws.com/REPO/install.py"
 RUN python3 -c "$(curl -fsSL ${PGEDGE_INSTALL_URL})"
-RUN ./pgedge/ctl install pgedge -U ${INIT_USERNAME} -d ${INIT_DATABASE} -P ${INIT_PASSWORD} --pg ${PGV} \
+RUN ./pgedge/ctl install pgedge -U ${INIT_USERNAME} -d ${INIT_DATABASE} -P ${INIT_PASSWORD} --pg ${PGV} -p 5432 \
     && ./pgedge/ctl um install vector \
     && pg_ctl stop
 
