@@ -347,6 +347,7 @@ def main():
             cur.execute("SET log_statement = 'none';")
             stmts = [
                 f"CREATE EXTENSION IF NOT EXISTS spock;",
+                f"CREATE EXTENSION IF NOT EXISTS snowflake;",
                 f"CREATE EXTENSION IF NOT EXISTS pg_stat_statements;",
             ]
             if "pgcat_auth" in postgres_users:

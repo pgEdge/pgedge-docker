@@ -33,6 +33,8 @@ if [[ -f "/home/pgedge/db.json" ]]; then
     SPEC_PATH="/home/pgedge/db.json"
 fi
 
+NODE_NAME=${NODE_NAME:-n1}
+
 # Initialize users and subscriptions in the background if there was a spec
 if [[ -n "${SPEC_PATH}" ]]; then
 
@@ -41,6 +43,9 @@ if [[ -n "${SPEC_PATH}" ]]; then
         NAME=$(jq -r ".name" "${SPEC_PATH}")
         echo "**** pgEdge: database name is ${NAME} ****"
         echo "cron.database_name = '${NAME}'" >>${PGCONF}
+        SNOWFLAKE_NODE=$(echo ${NODE_NAME} | sed "s/[^0-9]*//g") # n3 -> 3
+        echo "snowflake.node = ${SNOWFLAKE_NODE}" >>${PGCONF}
+        echo "**** pgEdge: snowflake.node = ${SNOWFLAKE_NODE} ****"
     fi
 
     # Write pgedge password to .pgpass if needed
