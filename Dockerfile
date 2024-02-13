@@ -16,7 +16,8 @@ RUN dnf install -y --allowerasing \
     python-pip \
     libpq \
     libssh2 \
-    tar
+    tar \
+    libedit
 
 # Create a pgedge user with a known UID for installing and running Postgres.
 # pgEdge binaries will be installed within /opt/pgedge.
