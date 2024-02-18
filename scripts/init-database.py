@@ -1,16 +1,10 @@
+import hashlib
 import json
 import os
 import sys
 import time
 from typing import Any, Optional, Tuple
 import psycopg
-
-SPEC_PATH = [
-    "/home/pgedge/db.json",
-    "/home/pgedge/node.secret.json",
-    "/home/pgedge/node.spec.json",
-]
-
 
 SUPERUSER_PARAMETERS = ", ".join(
     [
@@ -46,11 +40,10 @@ SUPERUSER_PARAMETERS = ", ".join(
 )
 
 
-def read_spec() -> dict[str, Any]:
-    for path in SPEC_PATH:
-        if os.path.exists(path):
-            with open(path) as f:
-                return json.load(f)
+def read_spec(path: str) -> dict[str, Any]:
+    if os.path.exists(path):
+        with open(path) as f:
+            return json.load(f)
     raise FileNotFoundError("spec not found")
 
 
@@ -241,7 +234,7 @@ def get_hostname(node: dict) -> str:
 def main():
     # The spec contains the desired settings
     try:
-        spec = read_spec()
+        spec = read_spec(sys.argv[1])
     except FileNotFoundError:
         info("ERROR: spec not found, skipping initialization")
         sys.exit(1)
@@ -388,7 +381,7 @@ def main():
     peers = [node for node in spec["nodes"] if node["name"] != node_name]
     with connect(local_dsn, autocommit=False) as conn:
         with conn.cursor() as cur:
-            for peer in peers:
+            for idx, peer in enumerate(peers):
                 info("waiting for peer:", peer["name"])
                 peer_dsn = dsn(
                     dbname=database,
@@ -396,7 +389,12 @@ def main():
                     host=get_hostname(peer),
                 )
                 wait_for_spock_node(peer_dsn)
-                spock_sub_create(cur, f"sub_{node_name}{peer['name']}", peer_dsn)
+                # sub names must be unique to the node pair and direction and also
+                # of limited length
+                sub_ident = f"sub_{node_name}{peer['name']}"
+                sub_hash = hashlib.sha1(sub_ident.encode()).hexdigest()
+                sub_name = f"sub_{sub_hash[:16]}"
+                spock_sub_create(cur, sub_name, peer_dsn)
                 info("subscribed to peer:", peer["name"])
 
     info(f"database node initialized ({node_name})")
