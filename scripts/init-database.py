@@ -1,4 +1,3 @@
-import hashlib
 import json
 import os
 import sys
@@ -389,11 +388,7 @@ def main():
                     host=get_hostname(peer),
                 )
                 wait_for_spock_node(peer_dsn)
-                # sub names must be unique to the node pair and direction and also
-                # of limited length
-                sub_ident = f"sub_{node_name}{peer['name']}"
-                sub_hash = hashlib.sha1(sub_ident.encode()).hexdigest()
-                sub_name = f"sub_{sub_hash[:16]}"
+                sub_name = f"sub_{node_name}{peer['name']}".replace("-", "_")
                 spock_sub_create(cur, sub_name, peer_dsn)
                 info("subscribed to peer:", peer["name"])
 
