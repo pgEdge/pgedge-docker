@@ -322,6 +322,7 @@ def main():
                 f"GRANT ALL PRIVILEGES ON DATABASE {init_dbname} TO {admin_username};",
                 f"GRANT ALL PRIVILEGES ON DATABASE {database} TO pgedge;",
                 f"ALTER USER pgedge WITH PASSWORD '{pgedge_pw}' LOGIN SUPERUSER REPLICATION;",
+                f"GRANT pgedge TO {admin_username} WITH SET TRUE, INHERIT FALSE;",
             ]
             for statement in stmts:
                 cur.execute(statement)
