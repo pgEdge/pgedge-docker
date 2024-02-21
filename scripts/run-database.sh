@@ -46,6 +46,8 @@ if [[ -n "${SPEC_PATH}" ]]; then
         SNOWFLAKE_NODE=$(echo ${NODE_NAME} | sed "s/[^0-9]*//g") # n3 -> 3
         echo "snowflake.node = ${SNOWFLAKE_NODE}" >>${PGCONF}
         echo "**** pgEdge: snowflake.node = ${SNOWFLAKE_NODE} ****"
+        echo "spock.enable_ddl_replication = on" >>${PGCONF}
+        echo "spock.include_ddl_repset = on" >>${PGCONF}
     fi
 
     # Write pgedge password to .pgpass if needed
