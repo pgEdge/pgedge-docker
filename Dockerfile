@@ -58,24 +58,17 @@ ENV INIT_PASSWORD=${INIT_PASSWORD}
 
 # Postgres verion to install
 ARG PGV="16"
-
-# These environment variables are primarily here to simplify the rest of this
-# Dockerfile. They may be overridden by the entrypoint script at runtime.
-ENV PGV=${PGV}
-ENV PGDATA="/opt/pgedge/data/pg${PGV}"
-ENV PGEDGE_CONF="${PGDATA}/postgresql.conf"
-ENV PGEDGE_HBA="${PGDATA}/pg_hba.conf"
-ENV PATH="/opt/pgedge/pg${PGV}/bin:/opt/pgedge:${PATH}"
+ARG PGEDGE_INSTALL_URL="https://pgedge-download.s3.amazonaws.com/REPO/install.py"
 
 # Install pgEdge Postgres binaries and pgvector
-ARG PGEDGE_INSTALL_URL="https://pgedge-download.s3.amazonaws.com/REPO/install.py"
+ENV PGV=${PGV}
+ENV PGDATA="/opt/pgedge/data/pg${PGV}"
+ENV PATH="/opt/pgedge/pg${PGV}/bin:/opt/pgedge:${PATH}"
 RUN python3 -c "$(curl -fsSL ${PGEDGE_INSTALL_URL})"
 RUN ./pgedge/ctl install pgedge -U ${INIT_USERNAME} -d ${INIT_DATABASE} -P ${INIT_PASSWORD} --pg ${PGV} -p 5432 \
     && ./pgedge/ctl um install vector \
+    && ./pgedge/ctl um install postgis \
     && pg_ctl stop
-
-# Now it's safe to set PGDATA to the intended runtime value
-ENV PGDATA=${DATA_DIR}
 
 # Customize some Postgres configuration settings in the image. You may want to
 # further customize these at runtime.
@@ -85,8 +78,9 @@ ARG EFFECTIVE_CACHE_SIZE="1024MB"
 ARG LOG_DESTINATION="stderr"
 ARG LOG_STATEMENT="ddl"
 ARG PASSWORD_ENCRYPTION="md5"
-
-RUN sed -i "s/^#\?password_encryption.*/password_encryption = ${PASSWORD_ENCRYPTION}/g" ${PGEDGE_CONF} \
+RUN PGEDGE_CONF="${PGDATA}/postgresql.conf"; \
+    PGEDGE_HBA="${PGDATA}/pg_hba.conf"; \
+    sed -i "s/^#\?password_encryption.*/password_encryption = ${PASSWORD_ENCRYPTION}/g" ${PGEDGE_CONF} \
     && sed -i "s/^#\?shared_buffers.*/shared_buffers = ${SHARED_BUFFERS}/g" ${PGEDGE_CONF} \
     && sed -i "s/^#\?maintenance_work_mem.*/maintenance_work_mem = ${MAINTENANCE_WORK_MEM}/g" ${PGEDGE_CONF} \
     && sed -i "s/^#\?effective_cache_size.*/effective_cache_size = ${EFFECTIVE_CACHE_SIZE}/g" ${PGEDGE_CONF} \
@@ -96,6 +90,9 @@ RUN sed -i "s/^#\?password_encryption.*/password_encryption = ${PASSWORD_ENCRYPT
     && sed -i "s/^#\?log_connections.*/log_connections = 'off'/g" ${PGEDGE_CONF} \
     && sed -i "s/^#\?log_disconnections.*/log_disconnections = 'off'/g" ${PGEDGE_CONF} \
     && sed -i "s/scram-sha-256/md5/g" ${PGEDGE_HBA}
+
+# Now it's safe to set PGDATA to the intended runtime value
+ENV PGDATA=${DATA_DIR}
 
 # The image itself shouldn't have pgpass data in it
 RUN rm -f ~/.pgpass

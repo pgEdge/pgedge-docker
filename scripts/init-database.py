@@ -1,6 +1,5 @@
 import json
 import os
-import uuid
 import sys
 import time
 from typing import Any, Optional, Tuple
@@ -135,11 +134,7 @@ def spock_sub_create(cursor, sub_name: str, other_dsn: str):
 
 def get_admin_creds(secret) -> Tuple[str, str]:
     for user in secret["users"]:
-        if (
-            user["service"] == "postgres"
-            and user.get("superuser")
-            and user["username"] != "pgedge"
-        ):
+        if user.get("service") == "postgres" and user["type"] == "admin":
             return user["username"], user["password"]
     return "", ""
 
@@ -182,8 +177,11 @@ def create_user_statement(user) -> list[str]:
     username = user["username"]
     password = user["password"]
     superuser = user.get("superuser")
+    user_type = user.get("type")
 
     if superuser:
+        return [f"CREATE USER {username} WITH LOGIN SUPERUSER PASSWORD '{password}';"]
+    elif user_type in ["admin", "internal_admin"]:
         return [
             f"CREATE USER {username} WITH LOGIN CREATEROLE CREATEDB PASSWORD '{password}';",
             f"GRANT pgedge_superuser to {username} WITH ADMIN TRUE;",
@@ -301,9 +299,9 @@ def main():
 
     # Bootstrap users and the primary database by connecting to the "init"
     # database which is built into the Docker image
-    init_dbname = os.environ.get("INIT_DATABASE")
-    init_username = os.environ.get("INIT_USERNAME")
-    init_password = os.environ.get("INIT_PASSWORD")
+    init_dbname = os.getenv("INIT_DATABASE")
+    init_username = os.getenv("INIT_USERNAME")
+    init_password = os.getenv("INIT_PASSWORD")
     init_dsn = dsn(dbname=init_dbname, user=init_username, pw=init_password)
     if not can_connect(init_dsn) and can_connect(local_dsn):
         info("database node already initialized")
@@ -368,7 +366,6 @@ def main():
             for user in postgres_users.values():
                 stmts.extend(alter_user_statements(user, database, ["public"]))
             for statement in stmts:
-                print(statement)
                 cur.execute(statement)
 
     with connect(internal_dsn, autocommit=False) as conn:
