@@ -5,13 +5,6 @@ import time
 from typing import Any, Optional, Tuple
 import psycopg
 
-SPEC_PATH = [
-    "/home/pgedge/db.json",
-    "/home/pgedge/node.secret.json",
-    "/home/pgedge/node.spec.json",
-]
-
-
 SUPERUSER_PARAMETERS = ", ".join(
     [
         "commit_delay",
@@ -46,11 +39,10 @@ SUPERUSER_PARAMETERS = ", ".join(
 )
 
 
-def read_spec() -> dict[str, Any]:
-    for path in SPEC_PATH:
-        if os.path.exists(path):
-            with open(path) as f:
-                return json.load(f)
+def read_spec(path: str) -> dict[str, Any]:
+    if os.path.exists(path):
+        with open(path) as f:
+            return json.load(f)
     raise FileNotFoundError("spec not found")
 
 
@@ -109,7 +101,7 @@ def wait_for_spock_node(dsn: str):
                     time.sleep(2)
 
 
-def spock_sub_create(cursor, sub_name: str, other_dsn: str):
+def spock_sub_create(conn, sub_name: str, other_dsn: str):
     forward_origins = "{}"
     replication_sets = "{default, default_insert_only, ddl_sql}"
     sub_create = f"""
@@ -125,7 +117,8 @@ def spock_sub_create(cursor, sub_name: str, other_dsn: str):
     # Retry until it works
     while True:
         try:
-            cursor.execute(sub_create)
+            with conn.cursor() as cursor:
+                cursor.execute(sub_create)
             return
         except Exception as exc:
             info("waiting for subscription to work...", exc)
@@ -241,7 +234,7 @@ def get_hostname(node: dict) -> str:
 def main():
     # The spec contains the desired settings
     try:
-        spec = read_spec()
+        spec = read_spec(sys.argv[1])
     except FileNotFoundError:
         info("ERROR: spec not found, skipping initialization")
         sys.exit(1)
@@ -387,17 +380,17 @@ def main():
     # Wait for each peer to come online and then subscribe to it
     peers = [node for node in spec["nodes"] if node["name"] != node_name]
     with connect(local_dsn, autocommit=False) as conn:
-        with conn.cursor() as cur:
-            for peer in peers:
-                info("waiting for peer:", peer["name"])
-                peer_dsn = dsn(
-                    dbname=database,
-                    user="pgedge",
-                    host=get_hostname(peer),
-                )
-                wait_for_spock_node(peer_dsn)
-                spock_sub_create(cur, f"sub_{node_name}{peer['name']}", peer_dsn)
-                info("subscribed to peer:", peer["name"])
+        for peer in peers:
+            info("waiting for peer:", peer["name"])
+            peer_dsn = dsn(
+                dbname=database,
+                user="pgedge",
+                host=get_hostname(peer),
+            )
+            wait_for_spock_node(peer_dsn)
+            sub_name = f"sub_{node_name}{peer['name']}".replace("-", "_")
+            spock_sub_create(conn, sub_name, peer_dsn)
+            info("subscribed to peer:", peer["name"])
 
     info(f"database node initialized ({node_name})")
 
