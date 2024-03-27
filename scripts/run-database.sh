@@ -48,6 +48,7 @@ if [[ -n "${SPEC_PATH}" ]]; then
         echo "**** pgEdge: snowflake.node = ${SNOWFLAKE_NODE} ****"
         echo "spock.enable_ddl_replication = on" >>${PGCONF}
         echo "spock.include_ddl_repset = on" >>${PGCONF}
+        echo "spock.allow_ddl_from_functions = on" >>${PGCONF}
     fi
 
     # Write pgedge password to .pgpass if needed
