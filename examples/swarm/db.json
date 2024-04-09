@@ -1,6 +1,7 @@
 {
   "name": "defaultdb",
   "port": 5432,
+  "options": ["autoddl:enabled"],
   "nodes": [
     {
       "name": "n1",
