@@ -46,6 +46,13 @@ if [[ -n "${SPEC_PATH}" ]]; then
         SNOWFLAKE_NODE=$(echo ${NODE_NAME} | sed "s/[^0-9]*//g") # n3 -> 3
         echo "snowflake.node = ${SNOWFLAKE_NODE}" >>${PGCONF}
         echo "**** pgEdge: snowflake.node = ${SNOWFLAKE_NODE} ****"
+        PGEDGE_AUTODDL=$(jq -r 'any(.options[]?; . == "autoddl:enabled")' ${SPEC_PATH})
+        if [[ "${PGEDGE_AUTODDL}" = "true" ]]; then
+            echo "spock.enable_ddl_replication = on" >>${PGCONF}
+            echo "spock.include_ddl_repset = on" >>${PGCONF}
+            echo "spock.allow_ddl_from_functions = on" >>${PGCONF}
+            echo "**** pgEdge: autoddl enabled ****"
+        fi
     fi
 
     # Write pgedge password to .pgpass if needed
