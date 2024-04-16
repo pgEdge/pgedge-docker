@@ -2,6 +2,7 @@
 
 set -e
 
+DEFAULT_SPEC_PATH="/home/pgedge/db.json"
 PGV=${PGV:-16}
 
 # Error if PGDATA is not set
@@ -29,18 +30,23 @@ if [[ ! -f "${PGCONF}" ]]; then
 fi
 
 # Detect the database specification file
-if [[ -f "/home/pgedge/db.json" ]]; then
-    SPEC_PATH="/home/pgedge/db.json"
+SPEC_PATHS=("$@")
+if [[ "${#SPEC_PATHS[@]}" -lt 1 && -e "${DEFAULT_SPEC_PATH}" ]]; then
+    SPEC_PATHS=("${DEFAULT_SPEC_PATH}")
 fi
 
 NODE_NAME=${NODE_NAME:-n1}
 
 # Initialize users and subscriptions in the background if there was a spec
-if [[ -n "${SPEC_PATH}" ]]; then
+if [[ "${#SPEC_PATHS[@]}" -gt 0 ]]; then
+    # Merge spec files together
+    MERGED_SPEC=/home/pgedge/.merged-spec.json
+    mkdir -p $(dirname "${MERGED_SPEC}")
+    jq -s 'reduce .[] as $spec ({}; . * $spec)' "${SPEC_PATHS[@]}" > "${MERGED_SPEC}"
 
     if [[ "${IS_SETUP}" = "1" ]]; then
         # Write the database name as cron.database_name in the configuration file
-        NAME=$(jq -r ".name" "${SPEC_PATH}")
+        NAME=$(jq -r '.name | select (.!=null)' "${MERGED_SPEC}")
         echo "**** pgEdge: database name is ${NAME} ****"
         echo "cron.database_name = '${NAME}'" >>${PGCONF}
         SNOWFLAKE_NODE=$(echo ${NODE_NAME} | sed "s/[^0-9]*//g") # n3 -> 3
@@ -57,9 +63,9 @@ if [[ -n "${SPEC_PATH}" ]]; then
 
     # Write pgedge password to .pgpass if needed
     if [[ ! -e ~/.pgpass || -z $(awk -F ':' '$4 == "pgedge"' ~/.pgpass) ]]; then
-        PGEDGE_PW=$(jq -r '.users[] |
+        PGEDGE_PW=$(jq -r '.users[]? |
             select(.username == "pgedge") |
-            .password' ${SPEC_PATH})
+            .password' "${MERGED_SPEC}")
 
         if [[ -z "${PGEDGE_PW}" ]]; then
             echo "**** ERROR: pgedge user missing from spec ****"
@@ -71,7 +77,7 @@ if [[ -n "${SPEC_PATH}" ]]; then
 
     # Spawn init script which creates users and subscriptions
     echo "**** pgEdge: starting init script in background ****"
-    PGV=${PGV} python3 /home/pgedge/scripts/init-database.py &
+    PGV=${PGV} python3 /home/pgedge/scripts/init-database.py "${MERGED_SPEC}" &
 fi
 
 # Run Postgres in the foreground
