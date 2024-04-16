@@ -63,36 +63,26 @@ postgres-n1:
 You can also take a look at [examples/swarm/stack.yaml](examples/swarm/stack.yaml)
 for an example of using Docker volumes.
 
-## Enabling Replication
+## Automatic DDL Replication
 
-When the container runs, the [Spock](https://github.com/pgedge/spock) extension
-is created and replication subscriptions are _automatically created_.
+Automatically replicating DDL statements is available on an opt-in basis. To
+enable this behavior, set the `autoddl:enabled` option on the database. Currently
+this option must be set at the time of database creation. Changing the option
+after creation is possible, but is not yet documented here.
 
-At this point you'll want to run your migrations or otherwise create tables. One
-way to create tables on all nodes is the `spock.replicate_ddl` function. For example,
-you can connect to a node with `psql` and then run:
-
-```sql
-SELECT spock.replicate_ddl('CREATE TABLE public.users (id uuid, name text, PRIMARY KEY (id))');
+```json
+{
+  "options": ["autoddl:enabled"]
+}
 ```
 
-The `users` table will now exist _on all nodes_. Now you can add the table to the
-default replication set by executing this command on all nodes:
+See the full example JSON configuration in the
+[Database Configuration](#database-configuration) section below.
 
-```sql
-SELECT spock.repset_add_all_tables('default', ARRAY['public']);
-```
+The user running DDL statements must be a superuser currently in order to use
+automatic DDL replication.
 
-Having done that, you can now insert on any node and the data will be replicated
-to all the other nodes. For example:
-
-```sql
-INSERT INTO users (id) SELECT gen_random_uuid();
-```
-
-There are various ways to automate these steps and more conveniences for DDL are
-coming soon. You can also use [pgEdge Cloud](https://www.pgedge.com/products/pgedge-cloud)
-to automate this process.
+More information on automatic DDL replication can be found [here](https://docs.pgedge.com/platform/advanced/autoddl).
 
 ## Database Configuration
 
@@ -104,6 +94,7 @@ remember to change the passwords!
 {
   "name": "defaultdb",
   "port": 5432,
+  "options": ["autoddl:enabled"],
   "nodes": [
     {
       "name": "n1",
@@ -145,4 +136,24 @@ remember to change the passwords!
     }
   ]
 }
+```
+
+## Spock Notes
+
+When the container runs, the [Spock](https://github.com/pgedge/spock) extension
+is created and replication subscriptions are _automatically created_.
+
+If you do not use automatic DDL replication as described above, you can instead
+use the `spock.replicate_ddl` function to manually replicate DDL statements.
+For example:
+
+```sql
+SELECT spock.replicate_ddl('CREATE TABLE public.users (id uuid, name text, PRIMARY KEY (id))');
+```
+
+The `users` table will now exist _on all nodes_. Now you can add the table to the
+default replication set by executing this command on all nodes:
+
+```sql
+SELECT spock.repset_add_all_tables('default', ARRAY['public']);
 ```
