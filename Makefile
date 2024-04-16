@@ -22,7 +22,7 @@ buildx-init:
 
 .PHONY: buildx
 buildx:
-	$(DOCKER_BUILDX) -t $(IMAGE_NAME) -t $(IMAGE_NAME):$(GIT_REVISION) --push .
+	$(DOCKER_BUILDX) -t $(IMAGE_NAME) -t $(IMAGE_NAME):$(GIT_REVISION) --no-cache --push .
 
 .PHONY: push
 push:
