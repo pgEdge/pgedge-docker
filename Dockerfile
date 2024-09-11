@@ -1,7 +1,8 @@
-FROM rockylinux:9.3
+FROM rockylinux/rockylinux:9.4-ubi
 
 ARG TARGETARCH
 
+RUN touch /etc/hostname
 RUN dnf install -y epel-release dnf
 RUN dnf config-manager --set-enabled crb
 RUN dnf install -y --allowerasing \
@@ -14,10 +15,11 @@ RUN dnf install -y --allowerasing \
     jq \
     net-tools \
     python-pip \
-    libpq \
     libssh2 \
     tar \
-    libedit
+    libedit \
+    pigz \
+    which
 
 # Create a pgedge user with a known UID for installing and running Postgres.
 # pgEdge binaries will be installed within /opt/pgedge.
@@ -27,7 +29,7 @@ RUN useradd -u ${PGEDGE_USER_ID} -m pgedge -s /bin/bash && \
     chown -R pgedge:pgedge /opt
 
 # The container init script requires psycopg
-RUN su - pgedge -c "pip3 install --user psycopg[binary]==3.1.10" && \
+RUN su - pgedge -c "pip3 install --user psycopg[binary]==3.1.20" && \
     dnf remove -y python-pip
 
 # Create the suggested data directory for Postgres in advance. Because Postgres
@@ -39,6 +41,7 @@ ARG DATA_DIR="/data/pgdata"
 RUN mkdir -p ${DATA_DIR} \
     && chown -R pgedge:pgedge /data \
     && chmod 750 /data ${DATA_DIR}
+
 
 # The rest of installation will be done as the pgedge user
 USER pgedge
@@ -59,16 +62,23 @@ ENV INIT_PASSWORD=${INIT_PASSWORD}
 # Postgres verion to install
 ARG PGV="16"
 ARG PGEDGE_INSTALL_URL="https://pgedge-download.s3.amazonaws.com/REPO/install.py"
+ARG SPOCK_VERSION="3.3.6"
 
 # Install pgEdge Postgres binaries and pgvector
 ENV PGV=${PGV}
 ENV PGDATA="/opt/pgedge/data/pg${PGV}"
+ENV LD_LIBRARY_PATH="/opt/pgedge/pg${PGV}/lib:${LD_LIBRARY_PATH}"
 ENV PATH="/opt/pgedge/pg${PGV}/bin:/opt/pgedge:${PATH}"
-RUN python3 -c "$(curl -fsSL ${PGEDGE_INSTALL_URL})"
-RUN ./pgedge/ctl install pgedge -U ${INIT_USERNAME} -d ${INIT_DATABASE} -P ${INIT_PASSWORD} --pg ${PGV} -p 5432 \
-    && ./pgedge/ctl um install vector \
-    && ./pgedge/ctl um install postgis \
-    && pg_ctl stop
+ADD --chmod=777 ${PGEDGE_INSTALL_URL} install.py
+RUN python3 install.py
+RUN rm install.py
+RUN ./pgedge/pgedge setup -U ${INIT_USERNAME} -d ${INIT_DATABASE} -P ${INIT_PASSWORD} --pg ${PGV} --spock_ver ${SPOCK_VERSION} -p 5432 \ 
+    && ./pgedge/pgedge um install vector \
+    && ./pgedge/pgedge um install postgis \
+    && pg_ctl stop -t 60 --wait
+
+
+
 
 # Customize some Postgres configuration settings in the image. You may want to
 # further customize these at runtime.
@@ -103,5 +113,6 @@ COPY scripts/run-database.sh /home/pgedge/scripts/
 COPY scripts/init-database.py /home/pgedge/scripts/
 
 EXPOSE 5432
+STOPSIGNAL SIGINT
 
 CMD ["/home/pgedge/scripts/run-database.sh"]
