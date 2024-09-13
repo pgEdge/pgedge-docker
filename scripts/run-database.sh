@@ -46,7 +46,9 @@ if [[ -n "${SPEC_PATH}" ]]; then
         SNOWFLAKE_NODE=$(echo ${NODE_NAME} | sed "s/[^0-9]*//g") # n3 -> 3
         echo "snowflake.node = ${SNOWFLAKE_NODE}" >>${PGCONF}
         echo "**** pgEdge: snowflake.node = ${SNOWFLAKE_NODE} ****"
+
         PGEDGE_AUTODDL=$(jq -r 'any(.options[]?; . == "autoddl:enabled")' ${SPEC_PATH})
+
         if [[ "${PGEDGE_AUTODDL}" = "true" ]]; then
             echo "spock.enable_ddl_replication = on" >>${PGCONF}
             echo "spock.include_ddl_repset = on" >>${PGCONF}
@@ -68,12 +70,55 @@ if [[ -n "${SPEC_PATH}" ]]; then
         echo "*:*:*:pgedge:${PGEDGE_PW}" >>~/.pgpass
         chmod 0600 ~/.pgpass
     fi
+    
+        
+    MODE=$(jq -r '.mode // "online"' ${SPEC_PATH})
+    if [[ "${MODE}" = "offline" ]]; then
+        # Spawn init script in foreground for mode: offline
+        echo "**** pgEdge: starting database in mode: offline ****"
+        PGV=${PGV} python3 /home/pgedge/scripts/init-database.py 2>&1
+        exit 0
+    fi
 
-    # Spawn init script which creates users and subscriptions
-    echo "**** pgEdge: starting init script in background ****"
+    # Spawn init script in background for normal operation
+    echo "**** pgEdge: starting database in mode: ${MODE} ****"
     PGV=${PGV} python3 /home/pgedge/scripts/init-database.py &
+    # Delay slightly to ensure the init script has time to write any configs
+    sleep 2
 fi
 
-# Run Postgres in the foreground
+
+
+
+## SigintHandler
+sigint_handler() {
+  if [ $pid -ne 0 ]; then
+    # the above if statement is important because it ensures
+    # that the application has already started. without it you
+    # could attempt cleanup steps if the application failed to
+    # start, causing errors.
+    echo "SIGINT received, beginning graceful shutdown"
+    kill -2 "$pid"
+    wait "$pid"
+  fi
+  exit 130; # SIGINT
+}
+
+## Setup signal trap
+# on callback execute the specified handler
+trap 'sigint_handler' SIGINT
+
+# Start postgres in the background
 echo "**** pgEdge: starting postgres with PGDATA=${PGDATA} ****"
-/opt/pgedge/pg${PGV}/bin/postgres -D ${PGDATA} 2>&1
+/opt/pgedge/pg${PGV}/bin/postgres -D ${PGDATA} 2>&1 &
+
+pid="$!"
+
+## Wait forever until postgres dies
+wait "$pid"
+return_code="$?"
+
+echo "Application exited with return code: $return_code"
+
+# echo the return code of postgres
+exit $return_code

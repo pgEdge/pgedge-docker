@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import json
 import os
 import sys
@@ -10,6 +11,8 @@ SPEC_PATH = [
     "/home/pgedge/node.secret.json",
     "/home/pgedge/node.spec.json",
 ]
+
+PG_CONF_FILE = "/data/pgdata/postgresql.conf"
 
 
 SUPERUSER_PARAMETERS = ", ".join(
@@ -131,9 +134,25 @@ def spock_sub_create(cursor, sub_name: str, other_dsn: str):
             info("waiting for subscription to work...", exc)
             time.sleep(2)
 
+def spock_sub_drop(cursor, sub_name: str):
+    sub_drop_if_exists = f"""
+    SELECT spock.sub_drop(
+        subscription_name := '{sub_name}',
+        ifexists := 'true'
+    );"""
 
-def get_admin_creds(secret) -> Tuple[str, str]:
-    for user in secret["users"]:
+    # Retry until it works
+    while True:
+        try:
+            cursor.execute(sub_drop_if_exists)
+            return
+        except Exception as exc:
+            info("waiting for subscription to drop...", exc)
+            time.sleep(2)
+
+
+def get_admin_creds(postgres_users: dict[str, Any]) -> Tuple[str, str]:
+    for _, user in postgres_users.items():
         if user.get("service") == "postgres" and user["type"] == "admin":
             return user["username"], user["password"]
     return "", ""
@@ -233,23 +252,35 @@ def get_self_node(spec):
 def get_hostname(node: dict) -> str:
     if "hostname" in node:
         return node["hostname"]
-    # For backwards compatibility. Remove this once we've launched and
-    # switched all databases to use the "hostname" key.
+    # For backwards compatibility.
     return node["internal_hostname"]
 
 
-def main():
-    # The spec contains the desired settings
-    try:
-        spec = read_spec()
-    except FileNotFoundError:
-        info("ERROR: spec not found, skipping initialization")
-        sys.exit(1)
+@dataclass
+class DatabaseInfo:
+    database_name: str
+    database_id: str
+    hostname: str
+    mode: Optional[str]
+    nodes: list[dict[str, Any]]
+    node_name: str
+    postgres_users: dict[str, Any]
+    spock_dsn: str
+    local_dsn: str
+    internal_dsn: str
+    init_dsn: str
+    init_username: str
+    init_dbname: str
+    pgedge_pw: str
 
-    database = spec.get("name")
-    if not database:
+
+def get_db_info(spec) -> DatabaseInfo:
+    database_name = spec.get("name")
+    if not database_name:
         info("ERROR: database name not found in spec")
         sys.exit(1)
+
+    database_id = spec.get("id", "default")
 
     nodes = spec.get("nodes")
     if not nodes:
@@ -260,11 +291,6 @@ def main():
     if not users:
         info("ERROR: users not found in spec")
         sys.exit(1)
-
-    # Give Postres a moment to start
-    time.sleep(3)
-
-    info("initializing database node")
 
     # Extract details of this node from the spec
     self_node = get_self_node(spec)
@@ -282,31 +308,67 @@ def main():
     if not pgedge_pw:
         info("ERROR: pgedge user configuration not found in spec")
         sys.exit(1)
-
-    admin_username, admin_password = get_admin_creds(spec)
+    admin_username, admin_password = get_admin_creds(postgres_users)
     if not admin_username or not admin_password:
         info("ERROR: admin user configuration not found in spec")
         sys.exit(1)
 
     # This DSN will be used for Spock subscriptions
-    spock_dsn = dsn(dbname=database, user="pgedge", host=hostname)
+    spock_dsn = dsn(dbname=database_name, user="pgedge", host=hostname)
 
     # This DSN will be used for the admin connection
-    local_dsn = dsn(dbname=spec["name"], user=admin_username, pw=admin_password)
+    local_dsn = dsn(dbname=database_name, user=admin_username, pw=admin_password)
 
     # This DSN will be used to the internal admin connection
-    internal_dsn = dsn(dbname=spec["name"], user="pgedge", pw=pgedge_pw)
+    internal_dsn = dsn(dbname=database_name, user="pgedge", pw=pgedge_pw)
 
-    # Bootstrap users and the primary database by connecting to the "init"
-    # database which is built into the Docker image
     init_dbname = os.getenv("INIT_DATABASE")
     init_username = os.getenv("INIT_USERNAME")
     init_password = os.getenv("INIT_PASSWORD")
     init_dsn = dsn(dbname=init_dbname, user=init_username, pw=init_password)
-    if not can_connect(init_dsn) and can_connect(local_dsn):
+
+    return DatabaseInfo(
+        database_name=database_name,
+        database_id=database_id,
+        nodes=nodes,
+        hostname=hostname,
+        node_name=node_name,
+        postgres_users=postgres_users,
+        spock_dsn=spock_dsn,
+        local_dsn=local_dsn,
+        internal_dsn=internal_dsn,
+        init_dsn=init_dsn,
+        init_dbname=init_dbname,
+        init_username=init_username,
+        pgedge_pw=pgedge_pw,
+        mode=spec.get("mode", "online"),
+    )
+
+def init_online_mode(db_info):
+    # Give Postgres a moment to start
+    time.sleep(3)
+
+    initialized = not can_connect(db_info.init_dsn) and can_connect(db_info.local_dsn)
+
+    if initialized:
         info("database node already initialized")
-        sys.exit(0)
-    with connect(init_dsn) as conn:
+    else:
+        info("initializing database node")
+        init_database(db_info)
+
+
+def init_offline_mode():
+    info("mode offline configured, postgres will not start")
+    while True:
+        time.sleep(1)
+
+
+def init_database(db_info: DatabaseInfo):
+    admin_username = get_admin_creds(db_info.postgres_users)[0]
+
+    # Bootstrap users and the primary database by connecting to the "init"
+    # database which is built into the Docker image
+    with connect(db_info.init_dsn) as conn:
         with conn.cursor() as cur:
             cur.execute("SET log_statement = 'none';")
             stmts = [
@@ -314,70 +376,36 @@ def main():
                 f"GRANT {get_superuser_roles()} TO pgedge_superuser WITH ADMIN true;",
                 f"GRANT SET ON PARAMETER {SUPERUSER_PARAMETERS} TO pgedge_superuser;",
             ]
-            for user in postgres_users.values():
+            for user in db_info.postgres_users.values():
                 stmts.extend(create_user_statement(user))
             stmts += [
-                f"CREATE DATABASE {database} OWNER {admin_username};",
-                f"GRANT ALL PRIVILEGES ON DATABASE {database} TO {admin_username};",
-                f"GRANT ALL PRIVILEGES ON DATABASE {init_dbname} TO {admin_username};",
-                f"GRANT ALL PRIVILEGES ON DATABASE {database} TO pgedge;",
-                f"ALTER USER pgedge WITH PASSWORD '{pgedge_pw}' LOGIN SUPERUSER REPLICATION;",
+                f"CREATE DATABASE {db_info.database_name} OWNER {admin_username};",
+                f"GRANT ALL PRIVILEGES ON DATABASE {db_info.database_name} TO {admin_username};",
+                f"GRANT ALL PRIVILEGES ON DATABASE {db_info.init_dbname} TO {admin_username};",
+                f"GRANT ALL PRIVILEGES ON DATABASE {db_info.database_name} TO pgedge;",
+                f"ALTER USER pgedge WITH PASSWORD '{db_info.pgedge_pw}' LOGIN SUPERUSER REPLICATION;",
             ]
             for statement in stmts:
                 cur.execute(statement)
+
+    info("successfully bootstrapped database users")
+
+    # Drop the init database and user
+    with connect(db_info.internal_dsn) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SET log_statement = 'none';")
+            stmts = [
+                f"DROP DATABASE {db_info.init_dbname};",
+                f"DROP USER {db_info.init_username};",
+            ]
+            for statement in stmts:
+                cur.execute(statement)
+
+    info("successfully dropped init database")
 
     schemas = ["public", "spock", "pg_catalog", "information_schema"]
 
-    # Drop the init database and user
-    with connect(internal_dsn) as conn:
-        with conn.cursor() as cur:
-            cur.execute("SET log_statement = 'none';")
-            stmts = [
-                f"DROP DATABASE {init_dbname};",
-                f"DROP USER {init_username};",
-            ]
-            for statement in stmts:
-                cur.execute(statement)
-
-    # Further configuration on the primary database
-    with connect(internal_dsn, autocommit=False) as conn:
-        with conn.cursor() as cur:
-            cur.execute("SET log_statement = 'none';")
-            stmts = [
-                f"CREATE EXTENSION IF NOT EXISTS spock;",
-                f"CREATE EXTENSION IF NOT EXISTS snowflake;",
-                f"CREATE EXTENSION IF NOT EXISTS pg_stat_statements;",
-            ]
-            if "pgcat_auth" in postgres_users:
-                # supports auth_query from pgcat
-                stmts.append(f"GRANT SELECT ON pg_shadow TO pgcat_auth;")
-            for user in postgres_users.values():
-                stmts.extend(alter_user_statements(user, database, schemas))
-            stmts.append(
-                f"SELECT spock.node_create(node_name := '{node_name}', dsn := '{spock_dsn}');"
-            )
-            for statement in stmts:
-                cur.execute(statement)
-
-    with connect(local_dsn) as conn:
-        with conn.cursor() as cur:
-            cur.execute("SET log_statement = 'none';")
-            stmts = []
-            for user in postgres_users.values():
-                stmts.extend(alter_user_statements(user, database, ["public"]))
-            for statement in stmts:
-                cur.execute(statement)
-
-    with connect(internal_dsn, autocommit=False) as conn:
-        with conn.cursor() as cur:
-            cur.execute("SET log_statement = 'none';")
-            stmts = []
-            for user in postgres_users.values():
-                stmts.extend(alter_user_statements(user, database, schemas))
-            for statement in stmts:
-                cur.execute(statement)
-
-    info(f"spock node created ({node_name})")
+    init_spock_node(db_info, schemas)
 
     # Give the other nodes a couple seconds to reach this point as well. The
     # below code will retry but doing this means fewer errored attempts in the
@@ -385,21 +413,92 @@ def main():
     time.sleep(5)
 
     # Wait for each peer to come online and then subscribe to it
-    peers = [node for node in spec["nodes"] if node["name"] != node_name]
-    with connect(local_dsn, autocommit=False) as conn:
+    init_peer_spock_subscriptions(db_info)
+
+    info(f"database node initialized ({db_info.node_name})")
+
+
+def init_peer_spock_subscriptions(db_info: DatabaseInfo, drop_existing: bool = False):
+    peers = [node for node in db_info.nodes if node["name"] != db_info.node_name]
+    with connect(db_info.local_dsn, autocommit=False) as conn:
         with conn.cursor() as cur:
             for peer in peers:
                 info("waiting for peer:", peer["name"])
                 peer_dsn = dsn(
-                    dbname=database,
+                    dbname=db_info.database_name,
                     user="pgedge",
                     host=get_hostname(peer),
                 )
+                sub_name = f"sub_{db_info.node_name}{peer['name']}"
                 wait_for_spock_node(peer_dsn)
-                spock_sub_create(cur, f"sub_{node_name}{peer['name']}", peer_dsn)
+                if drop_existing:
+                    spock_sub_drop(cur, sub_name)
+                spock_sub_create(
+                    cur, sub_name, peer_dsn
+                )
                 info("subscribed to peer:", peer["name"])
 
-    info(f"database node initialized ({node_name})")
+def init_spock_node(db_info: DatabaseInfo, schemas: list[str]):
+
+    with connect(db_info.internal_dsn, autocommit=False) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SET log_statement = 'none';")
+            stmts = [
+                f"CREATE EXTENSION IF NOT EXISTS spock;",
+                f"CREATE EXTENSION IF NOT EXISTS snowflake;",
+                f"CREATE EXTENSION IF NOT EXISTS pg_stat_statements;",
+            ]
+            if "pgcat_auth" in db_info.postgres_users:
+                # supports auth_query from pgcat
+                stmts.append(f"GRANT SELECT ON pg_shadow TO pgcat_auth;")
+            for user in db_info.postgres_users.values():
+                stmts.extend(
+                    alter_user_statements(user, db_info.database_name, schemas)
+                )
+            stmts.append(
+                f"SELECT spock.node_create(node_name := '{db_info.node_name}', dsn := '{db_info.spock_dsn}') WHERE '{db_info.node_name}' NOT IN (SELECT node_name FROM spock.node);"
+            )
+            for statement in stmts:
+                cur.execute(statement)
+
+    with connect(db_info.local_dsn) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SET log_statement = 'none';")
+            stmts = []
+            for user in db_info.postgres_users.values():
+                stmts.extend(
+                    alter_user_statements(user, db_info.database_name, ["public"])
+                )
+            for statement in stmts:
+                cur.execute(statement)
+
+    with connect(db_info.internal_dsn, autocommit=False) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SET log_statement = 'none';")
+            stmts = []
+            for user in db_info.postgres_users.values():
+                stmts.extend(
+                    alter_user_statements(user, db_info.database_name, schemas)
+                )
+            for statement in stmts:
+                cur.execute(statement)
+
+
+def main():
+    # The spec contains the desired settings
+    try:
+        spec = read_spec()
+    except FileNotFoundError:
+        info("ERROR: spec not found, skipping initialization")
+        sys.exit(1)
+
+    # Parse the spec so we can pass it around
+    db_info = get_db_info(spec)
+
+    if db_info.mode == "offline":
+        init_offline_mode()
+    else:
+        init_online_mode(db_info)
 
 
 if __name__ == "__main__":
