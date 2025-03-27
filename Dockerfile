@@ -74,12 +74,11 @@ ARG SPOCK_VERSION="4.0.10"
 # Install pgEdge Postgres binaries and pgvector
 ENV PGV=${PGV}
 ENV PGDATA="/opt/pgedge/data/pg${PGV}"
-ENV LD_LIBRARY_PATH="/opt/pgedge/pg${PGV}/lib:${LD_LIBRARY_PATH}"
 ENV PATH="/opt/pgedge/pg${PGV}/bin:/opt/pgedge:${PATH}"
 RUN python3 -c "$(curl -fsSL ${PGEDGE_INSTALL_URL})" skipcache
 RUN ./pgedge/pgedge setup -U ${INIT_USERNAME} -d ${INIT_DATABASE} -P ${INIT_PASSWORD} --pg_ver ${PGV} --spock_ver ${SPOCK_VERSION} -p 5432 \
     && ./pgedge/pgedge um install vector \
-    # && ./pgedge/pgedge um install postgis \
+    && ./pgedge/pgedge um install postgis \
     && pg_ctl stop -t 60 --wait;
 
 
