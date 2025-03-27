@@ -6,12 +6,6 @@ import time
 from typing import Any, Optional, Tuple
 import psycopg
 
-SPEC_PATH = [
-    "/home/pgedge/db.json",
-    "/home/pgedge/node.secret.json",
-    "/home/pgedge/node.spec.json",
-]
-
 PG_CONF_FILE = "/data/pgdata/postgresql.conf"
 
 
@@ -49,11 +43,10 @@ SUPERUSER_PARAMETERS = ", ".join(
 )
 
 
-def read_spec() -> dict[str, Any]:
-    for path in SPEC_PATH:
-        if os.path.exists(path):
-            with open(path) as f:
-                return json.load(f)
+def read_spec(path: str) -> dict[str, Any]:
+    if os.path.exists(path):
+        with open(path) as f:
+            return json.load(f)
     raise FileNotFoundError("spec not found")
 
 
@@ -112,7 +105,7 @@ def wait_for_spock_node(dsn: str):
                     time.sleep(2)
 
 
-def spock_sub_create(cursor, sub_name: str, other_dsn: str):
+def spock_sub_create(conn, sub_name: str, other_dsn: str):
     forward_origins = "{}"
     replication_sets = "{default, default_insert_only, ddl_sql}"
     sub_create = f"""
@@ -128,7 +121,8 @@ def spock_sub_create(cursor, sub_name: str, other_dsn: str):
     # Retry until it works
     while True:
         try:
-            cursor.execute(sub_create)
+            with conn.cursor() as cursor:
+                cursor.execute(sub_create)
             return
         except Exception as exc:
             info("waiting for subscription to work...", exc)
@@ -429,7 +423,7 @@ def init_peer_spock_subscriptions(db_info: DatabaseInfo, drop_existing: bool = F
                     user="pgedge",
                     host=get_hostname(peer),
                 )
-                sub_name = f"sub_{db_info.node_name}{peer['name']}"
+                sub_name = f"sub_{db_info.node_name}{peer['name']}".replace("-", "_")
                 wait_for_spock_node(peer_dsn)
                 if drop_existing:
                     spock_sub_drop(cur, sub_name)
@@ -487,7 +481,7 @@ def init_spock_node(db_info: DatabaseInfo, schemas: list[str]):
 def main():
     # The spec contains the desired settings
     try:
-        spec = read_spec()
+        spec = read_spec(sys.argv[1])
     except FileNotFoundError:
         info("ERROR: spec not found, skipping initialization")
         sys.exit(1)
