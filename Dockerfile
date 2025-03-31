@@ -16,10 +16,12 @@ RUN dnf install -y --allowerasing \
     jq \
     net-tools \
     python-pip \
-    libssh2 \
+    libssh \
     tar \
     libedit \
+    brotli \ 
     pigz \
+    libpsl \
     which
 
 # Create a pgedge user with a known UID for installing and running Postgres.
@@ -78,10 +80,11 @@ ENV PATH="/opt/pgedge/pg${PGV}/bin:/opt/pgedge:${PATH}"
 RUN python3 -c "$(curl -fsSL ${PGEDGE_INSTALL_URL})" skipcache
 RUN ./pgedge/pgedge setup -U ${INIT_USERNAME} -d ${INIT_DATABASE} -P ${INIT_PASSWORD} --pg_ver ${PGV} --spock_ver ${SPOCK_VERSION} -p 5432 \
     && ./pgedge/pgedge um install vector \
-    # && ./pgedge/pgedge um install postgis \
+    && cp /lib64/libssh* /opt/pgedge/pg${PGV}/lib/ \
+    && cp /lib64/libpsl* /opt/pgedge/pg${PGV}/lib/ \
+    && cp /lib64/libbrotli* /opt/pgedge/pg${PGV}/lib/ \
+    && ./pgedge/pgedge um install postgis \
     && pg_ctl stop -t 60 --wait;
-
-
 
 USER pgedge
 
