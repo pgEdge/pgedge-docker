@@ -128,7 +128,7 @@ def spock_sub_create(conn, sub_name: str, other_dsn: str):
             info("waiting for subscription to work...", exc)
             time.sleep(2)
 
-def spock_sub_drop(cursor, sub_name: str):
+def spock_sub_drop(conn, sub_name: str):
     sub_drop_if_exists = f"""
     SELECT spock.sub_drop(
         subscription_name := '{sub_name}',
@@ -138,7 +138,8 @@ def spock_sub_drop(cursor, sub_name: str):
     # Retry until it works
     while True:
         try:
-            cursor.execute(sub_drop_if_exists)
+            with conn.cursor() as cursor:
+                cursor.execute(sub_drop_if_exists)
             return
         except Exception as exc:
             info("waiting for subscription to drop...", exc)
@@ -415,22 +416,21 @@ def init_database(db_info: DatabaseInfo):
 def init_peer_spock_subscriptions(db_info: DatabaseInfo, drop_existing: bool = False):
     peers = [node for node in db_info.nodes if node["name"] != db_info.node_name]
     with connect(db_info.local_dsn, autocommit=False) as conn:
-        with conn.cursor() as cur:
-            for peer in peers:
-                info("waiting for peer:", peer["name"])
-                peer_dsn = dsn(
-                    dbname=db_info.database_name,
-                    user="pgedge",
-                    host=get_hostname(peer),
-                )
-                sub_name = f"sub_{db_info.node_name}{peer['name']}".replace("-", "_")
-                wait_for_spock_node(peer_dsn)
-                if drop_existing:
-                    spock_sub_drop(cur, sub_name)
-                spock_sub_create(
-                    cur, sub_name, peer_dsn
-                )
-                info("subscribed to peer:", peer["name"])
+        for peer in peers:
+            info("waiting for peer:", peer["name"])
+            peer_dsn = dsn(
+                dbname=db_info.database_name,
+                user="pgedge",
+                host=get_hostname(peer),
+            )
+            sub_name = f"sub_{db_info.node_name}{peer['name']}".replace("-", "_")
+            wait_for_spock_node(peer_dsn)
+            if drop_existing:
+                spock_sub_drop(conn, sub_name)
+            spock_sub_create(
+                conn, sub_name, peer_dsn
+            )
+            info("subscribed to peer:", peer["name"])
 
 def init_spock_node(db_info: DatabaseInfo, schemas: list[str]):
 
