@@ -7,6 +7,8 @@ BUILD_REVISION=1
 
 IMAGE_NAME=pgedge/pgedge
 
+IMAGE_TAG = pg$(1)_$(SPOCK_VERSION)-$(BUILD_REVISION)
+
 BUILDER_NAME=pgedge-builder
 
 DOCKER_BUILDX=docker buildx build --builder $(BUILDER_NAME) --platform linux/amd64,linux/arm64
@@ -30,7 +32,7 @@ buildx: $(foreach n,$(PGVS),buildx-pg$(n))
 define BUILDX_PGV
 .PHONY: buildx-pg$(1)
 buildx-pg$(1):
-	$(DOCKER_BUILDX) --build-arg PGV=$(1) -t $(IMAGE_NAME):pg$(1)_$(SPOCK_VERSION)-$(BUILD_REVISION) --no-cache .
+	$(DOCKER_BUILDX) --build-arg PGV=$(1) -t $(IMAGE_NAME):$(call IMAGE_TAG,$(1)) --no-cache --push .
 endef
 
 $(foreach n,$(PGVS),$(eval $(call BUILDX_PGV,$n)))
