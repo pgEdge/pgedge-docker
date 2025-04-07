@@ -153,8 +153,7 @@ def get_admin_creds(postgres_users: dict[str, Any]) -> Tuple[str, str]:
     return "", ""
 
 
-def get_superuser_roles() -> str:
-    pg_version = os.getenv("PGV")
+def get_superuser_roles(pg_version: str) -> str:
     if pg_version == "15":
         return ", ".join(
             [
@@ -203,7 +202,7 @@ def get_superuser_roles() -> str:
         raise ValueError(f"unrecognized postgres version: '{pg_version}'")
 
 
-def create_user_statement(user) -> list[str]:
+def create_user_statement(user, pg_version) -> list[str]:
     username = user["username"]
     password = user["password"]
     superuser = user.get("superuser")
@@ -214,7 +213,7 @@ def create_user_statement(user) -> list[str]:
     elif user_type in ["admin", "internal_admin"]:
         return [
             f"CREATE USER {username} WITH LOGIN CREATEROLE CREATEDB PASSWORD '{password}';",
-            f"GRANT pgedge_superuser to {username} WITH ADMIN TRUE;",
+            f"GRANT pgedge_superuser to {username} {get_admin_option(pg_version)};",
         ]
     else:
         return [f"CREATE USER {username} WITH LOGIN PASSWORD '{password}';"]
@@ -283,6 +282,7 @@ class DatabaseInfo:
     init_username: str
     init_dbname: str
     pgedge_pw: str
+    pg_version: str
 
 
 def get_db_info(spec) -> DatabaseInfo:
@@ -310,6 +310,11 @@ def get_db_info(spec) -> DatabaseInfo:
     postgres_users = dict(
         (user["username"], user) for user in users if user["service"] == "postgres"
     )
+
+    pg_version = os.getenv("PGV")
+    if not pg_version:
+        info("ERROR: PGV not found in environment")
+        sys.exit(1)
 
     # Get the pgedge password and remove the user from the dict.
     # This user already exists so we don't need to create it later.
@@ -352,6 +357,7 @@ def get_db_info(spec) -> DatabaseInfo:
         init_dbname=init_dbname,
         init_username=init_username,
         pgedge_pw=pgedge_pw,
+        pg_version=pg_version,
         mode=spec.get("mode", "online"),
     )
 
@@ -373,10 +379,14 @@ def init_offline_mode():
     while True:
         time.sleep(1)
 
-
+def get_admin_option(pg_version: str) -> str:
+    if pg_version == "15":
+        return "WITH ADMIN OPTION"
+    else:
+        return "WITH ADMIN TRUE"
+    
 def init_database(db_info: DatabaseInfo):
     admin_username = get_admin_creds(db_info.postgres_users)[0]
-
     # Bootstrap users and the primary database by connecting to the "init"
     # database which is built into the Docker image
     with connect(db_info.init_dsn) as conn:
@@ -384,11 +394,11 @@ def init_database(db_info: DatabaseInfo):
             cur.execute("SET log_statement = 'none';")
             stmts = [
                 f"CREATE ROLE pgedge_superuser WITH NOLOGIN;",
-                f"GRANT {get_superuser_roles()} TO pgedge_superuser WITH ADMIN true;",
+                f"GRANT {get_superuser_roles(db_info.pg_version)} TO pgedge_superuser {get_admin_option(db_info.pg_version)};",
                 f"GRANT SET ON PARAMETER {SUPERUSER_PARAMETERS} TO pgedge_superuser;",
             ]
             for user in db_info.postgres_users.values():
-                stmts.extend(create_user_statement(user))
+                stmts.extend(create_user_statement(user, db_info.pg_version))
             stmts += [
                 f"CREATE DATABASE {db_info.database_name} OWNER {admin_username};",
                 f"GRANT ALL PRIVILEGES ON DATABASE {db_info.database_name} TO {admin_username};",
