@@ -183,6 +183,22 @@ def get_superuser_roles() -> str:
                 "pg_create_subscription",
             ]
         )
+    elif pg_version == "17":
+        return ", ".join(
+            [
+                "pg_read_all_data",
+                "pg_write_all_data",
+                "pg_read_all_settings",
+                "pg_read_all_stats",
+                "pg_stat_scan_tables",
+                "pg_monitor",
+                "pg_signal_backend",
+                "pg_checkpoint",
+                "pg_use_reserved_connections",
+                "pg_create_subscription",
+                "pg_maintain"
+            ]
+        )
     else:
         raise ValueError(f"unrecognized postgres version: '{pg_version}'")
 
