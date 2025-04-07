@@ -1,0 +1,36 @@
+{
+    "name": "defaultdb",
+    "port": 5432,
+    "options": ["autoddl:enabled"],
+    "nodes": [
+      {
+        "name": "n1",
+        "region": "us-east-1",
+        "hostname": "postgres-n1"
+      }
+    ],
+    "users": [
+      {
+        "username": "app",
+        "password": "0Osh8bqE5EokT3I3Z78MQ344",
+        "superuser": false,
+        "service": "postgres",
+        "type": "application"
+      },
+      {
+        "username": "admin",
+        "password": "uFR44yr69C4mZa72g3JQ37GX",
+        "superuser": true,
+        "service": "postgres",
+        "type": "admin"
+      },
+      {
+        "username": "pgedge",
+        "password": "z1Zsku10a91RS526jnVrLC39",
+        "superuser": true,
+        "service": "postgres",
+        "type": "internal_admin"
+      }
+    ]
+  }
+  

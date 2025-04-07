@@ -44,3 +44,14 @@ buildx-pg$(1):
 endef
 
 $(foreach n,$(PGVS),$(eval $(call BUILDX_PGV,$n)))
+
+.PHONY: test
+test: $(foreach n,$(PGVS),test-pg$(n))
+
+define TEST_PGV
+.PHONY: test-pg$(1)
+test-pg$(1):
+	go run tests/main.go pgedge/pgedge:pg$(1)-$(GIT_REVISION) $(PWD)/tests/db.json
+endef
+
+$(foreach n,$(PGVS),$(eval $(call TEST_PGV,$n)))
