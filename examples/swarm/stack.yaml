@@ -37,7 +37,7 @@ services:
         - "traefik.http.middlewares.strip.stripprefix.prefixes=/traefik"
 
   postgres-n1:
-    image: pgedge/pgedge:pg17-latest
+    image: pgedge/pgedge:pg16-latest
     environment:
       - "NODE_NAME=n1"
       - "PGDATA=/data/pgdata"
@@ -81,7 +81,7 @@ services:
         - "traefik.tcp.services.svc-db-1.loadbalancer.server.port=6432"
 
   postgres-n2:
-    image: pgedge/pgedge:pg17-latest
+    image: pgedge/pgedge:pg16-latest
     environment:
       - "NODE_NAME=n2"
       - "PGDATA=/data/pgdata"

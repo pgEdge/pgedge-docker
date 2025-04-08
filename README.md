@@ -17,7 +17,7 @@ To run a single node you can use this command:
 ```
 docker run -it --rm -p 5432:5432 \
   -v "./examples/singlenode/db.json:/home/pgedge/db.json" \
-  pgedge/pgedge:pg17-latest
+  pgedge/pgedge:pg16-latest
 ```
 
 You can then log in using `psql` with the following command:
@@ -51,7 +51,7 @@ container's `/data` folder looks like this:
 
 ```yaml
 postgres-n1:
-  image: pgedge/pgedge:pg17-latest
+  image: pgedge/pgedge:pg16-latest
   environment:
     - 'NODE_NAME=n1'
     - 'PGDATA=/data/pgdata'
