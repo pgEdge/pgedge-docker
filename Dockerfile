@@ -1,10 +1,11 @@
-FROM rockylinux/rockylinux:9.4-ubi
+FROM rockylinux/rockylinux:9.5-ubi
 
 ARG TARGETARCH
 
 RUN touch /etc/hostname
 RUN dnf install -y epel-release dnf
 RUN dnf config-manager --set-enabled crb
+RUN dnf update -y --allowerasing
 RUN dnf install -y --allowerasing \
     dnsutils \
     unzip \
@@ -15,10 +16,12 @@ RUN dnf install -y --allowerasing \
     jq \
     net-tools \
     python-pip \
-    libssh2 \
+    libssh \
     tar \
     libedit \
+    brotli \ 
     pigz \
+    libpsl \
     which
 
 # Create a pgedge user with a known UID for installing and running Postgres.
@@ -28,9 +31,15 @@ RUN useradd -u ${PGEDGE_USER_ID} -m pgedge -s /bin/bash && \
     mkdir -p /opt/pgedge && \
     chown -R pgedge:pgedge /opt
 
-# The container init script requires psycopg
-RUN su - pgedge -c "pip3 install --user psycopg[binary]==3.1.20" && \
-    dnf remove -y python-pip
+
+
+# The container init script requires psycopg and we need ydiff to support ACE's
+# CSV output.
+# TODO: the CLI installation includes ydiff, but it does not include the ydiff
+# executable. Installing it ourselves via pip is a workaround. It's important
+# that we install the exact same version of ydiff as what's specified in the
+# CLI's requirements.txt.
+RUN su - pgedge -c "pip3 install --user psycopg[binary]==3.2.3 ydiff==1.3"
 
 # Create the suggested data directory for Postgres in advance. Because Postgres
 # is picky about data directory ownership and permissions, the PGDATA directory
@@ -62,23 +71,25 @@ ENV INIT_PASSWORD=${INIT_PASSWORD}
 # Postgres verion to install
 ARG PGV="16"
 ARG PGEDGE_INSTALL_URL="https://pgedge-download.s3.amazonaws.com/REPO/install.py"
-ARG SPOCK_VERSION="3.3.6"
+ARG SPOCK_VERSION="4.0.10"
 
 # Install pgEdge Postgres binaries and pgvector
 ENV PGV=${PGV}
 ENV PGDATA="/opt/pgedge/data/pg${PGV}"
-ENV LD_LIBRARY_PATH="/opt/pgedge/pg${PGV}/lib:${LD_LIBRARY_PATH}"
 ENV PATH="/opt/pgedge/pg${PGV}/bin:/opt/pgedge:${PATH}"
-ADD --chmod=777 ${PGEDGE_INSTALL_URL} install.py
-RUN python3 install.py
-RUN rm install.py
-RUN ./pgedge/pgedge setup -U ${INIT_USERNAME} -d ${INIT_DATABASE} -P ${INIT_PASSWORD} --pg ${PGV} --spock_ver ${SPOCK_VERSION} -p 5432 \ 
+RUN python3 -c "$(curl -fsSL ${PGEDGE_INSTALL_URL})" skipcache
+RUN ./pgedge/pgedge setup -U ${INIT_USERNAME} -d ${INIT_DATABASE} -P ${INIT_PASSWORD} --pg_ver ${PGV} --spock_ver ${SPOCK_VERSION} -p 5432 \
     && ./pgedge/pgedge um install vector \
+    && cp /lib64/libssh* /opt/pgedge/pg${PGV}/lib/ \
+    && cp /lib64/libpsl* /opt/pgedge/pg${PGV}/lib/ \
+    && cp /lib64/libbrotli* /opt/pgedge/pg${PGV}/lib/ \
     && ./pgedge/pgedge um install postgis \
-    && pg_ctl stop -t 60 --wait
+    && pg_ctl stop -t 60 --wait;
 
+USER pgedge
 
-
+# This is still required at runtime currently, but setting it earlier causes issues with dnf
+ENV LD_LIBRARY_PATH="/opt/pgedge/pg${PGV}/lib"
 
 # Customize some Postgres configuration settings in the image. You may want to
 # further customize these at runtime.
