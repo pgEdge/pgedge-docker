@@ -39,7 +39,7 @@ RUN useradd -u ${PGEDGE_USER_ID} -m pgedge -s /bin/bash && \
 # executable. Installing it ourselves via pip is a workaround. It's important
 # that we install the exact same version of ydiff as what's specified in the
 # CLI's requirements.txt.
-RUN su - pgedge -c "pip3 install --user psycopg[binary]==3.2.3 ydiff==1.3"
+RUN su - pgedge -c "pip3 install --user psycopg[binary]==3.2.7 ydiff==1.3"
 
 # Create the suggested data directory for Postgres in advance. Because Postgres
 # is picky about data directory ownership and permissions, the PGDATA directory
@@ -70,11 +70,13 @@ ENV INIT_PASSWORD=${INIT_PASSWORD}
 
 # Postgres verion to install
 ARG PGV="16"
-ARG PGEDGE_INSTALL_URL="https://pgedge-download.s3.amazonaws.com/REPO/install.py"
+ARG REPO="https://pgedge-download.s3.amazonaws.com/REPO"
+ARG PGEDGE_INSTALL_URL="${REPO}/install.py"
 ARG SPOCK_VERSION="4.0.10"
 
 # Install pgEdge Postgres binaries and pgvector
 ENV PGV=${PGV}
+ENV REPO=${REPO}
 ENV PGDATA="/opt/pgedge/data/pg${PGV}"
 ENV PATH="/opt/pgedge/pg${PGV}/bin:/opt/pgedge:${PATH}"
 RUN python3 -c "$(curl -fsSL ${PGEDGE_INSTALL_URL})" skipcache
