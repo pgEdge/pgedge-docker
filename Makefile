@@ -45,7 +45,7 @@ buildx: $(foreach n,$(PGVS),buildx-pg$(n))
 define BUILDX_PGV
 .PHONY: buildx-pg$(1)
 buildx-pg$(1):
-	$(DOCKER_BUILDX) --build-arg PGV=$(1) --build-arg REPO=$(REPO) -t $(IMAGE_NAME):$(call IMAGE_TAG,$(1)) -t $(IMAGE_NAME):$(call IMAGE_TAG_LATEST,$(1)) --no-cache .
+	$(DOCKER_BUILDX) --build-arg PGV=$(1) --build-arg REPO=$(REPO) -t $(IMAGE_NAME):$(call IMAGE_TAG,$(1)) -t $(IMAGE_NAME):$(call IMAGE_TAG_LATEST,$(1)) --no-cache $(if $(PUSH),--push,) .
 endef
 
 $(foreach n,$(PGVS),$(eval $(call BUILDX_PGV,$n)))
