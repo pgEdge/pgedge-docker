@@ -1,0 +1,56 @@
+configs:
+  db-spec:
+    content: |
+      {
+        "name": "example_db",
+        "options": ["autoddl:enabled"],
+        "users": [
+          {
+            "username": "pgedge",
+            "password": "${PGEDGE_PASSWORD:-password}",
+            "service": "postgres",
+            "type": "internal_admin"
+          },
+          {
+            "username": "admin",
+            "password": "${ADMIN_PASSWORD:-password}",
+            "service": "postgres",
+            "type": "admin"
+          }
+        ],
+        "nodes": [
+          {
+            "name": "n1",
+            "hostname": "postgres-n1"
+          },
+          {
+            "name": "n2",
+            "hostname": "postgres-n2"
+          }
+        ]
+      }
+services:
+  postgres-n1:
+    image: pgedge/pgedge:pg17-latest
+    environment:
+      - NODE_NAME=n1
+    configs:
+      - source: db-spec
+        target: /home/pgedge/db.json
+        gid: "1020"
+        uid: "1020"
+    ports:
+      - target: 5432
+        published: 6432
+  postgres-n2:
+    image: pgedge/pgedge:pg17-latest
+    environment:
+      - NODE_NAME=n2
+    configs:
+      - source: db-spec
+        target: /home/pgedge/db.json
+        gid: "1020"
+        uid: "1020"
+    ports:
+      - target: 5432
+        published: 6433
