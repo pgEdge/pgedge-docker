@@ -40,6 +40,7 @@ RUN useradd -u ${PGEDGE_USER_ID} -m pgedge -s /bin/bash && \
 # that we install the exact same version of ydiff as what's specified in the
 # CLI's requirements.txt.
 RUN su - pgedge -c "pip3 install --user psycopg[binary]==3.2.7 ydiff==1.3"
+
 # Remove pip
 RUN dnf remove -y python3-pip python-pip
 
@@ -84,9 +85,6 @@ ENV PATH="/opt/pgedge/pg${PGV}/bin:/opt/pgedge:${PATH}"
 RUN python3 -c "$(curl -fsSL ${PGEDGE_INSTALL_URL})" skipcache
 RUN ./pgedge/pgedge setup -U ${INIT_USERNAME} -d ${INIT_DATABASE} -P ${INIT_PASSWORD} --pg_ver ${PGV} --spock_ver ${SPOCK_VERSION} -p 5432 \
     && ./pgedge/pgedge um install vector \
-    && cp /lib64/libssh* /opt/pgedge/pg${PGV}/lib/ \
-    && cp /lib64/libpsl* /opt/pgedge/pg${PGV}/lib/ \
-    && cp /lib64/libbrotli* /opt/pgedge/pg${PGV}/lib/ \
     && ./pgedge/pgedge um install postgis \
     && pg_ctl stop -t 60 --wait;
 
