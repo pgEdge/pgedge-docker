@@ -157,3 +157,19 @@ default replication set by executing this command on all nodes:
 ```sql
 SELECT spock.repset_add_all_tables('default', ARRAY['public']);
 ```
+
+## Server Certificate and Private Key
+
+This image contains a default `server.crt` and `server.key` generated during the image build.
+
+When operating this image in your own environment, you should generate your own 
+`server.crt` and `server.key` using `openssl`. These files can then be mounted over top 
+of the default versions located at:
+
+ ```
+/opt/pgedge/data/pg17/server.key
+/opt/pgedge/data/pg17/server.crt
+ ```
+
+You can read more about certificate generation and using SSL connections with PostgreSQL 
+in the [PostgreSQL documentation](https://www.postgresql.org/docs/current/ssl-tcp.html).

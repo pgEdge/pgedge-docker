@@ -41,6 +41,9 @@ RUN useradd -u ${PGEDGE_USER_ID} -m pgedge -s /bin/bash && \
 # CLI's requirements.txt.
 RUN su - pgedge -c "pip3 install --user psycopg[binary]==3.2.7 ydiff==1.3"
 
+# Remove pip
+RUN dnf remove -y python3-pip python-pip
+
 # Create the suggested data directory for Postgres in advance. Because Postgres
 # is picky about data directory ownership and permissions, the PGDATA directory
 # should be nested one level down in the volume. So our suggestion is to mount
@@ -82,12 +85,12 @@ ENV PATH="/opt/pgedge/pg${PGV}/bin:/opt/pgedge:${PATH}"
 RUN python3 -c "$(curl -fsSL ${PGEDGE_INSTALL_URL})" skipcache
 RUN ./pgedge/pgedge setup -U ${INIT_USERNAME} -d ${INIT_DATABASE} -P ${INIT_PASSWORD} --pg_ver ${PGV} --spock_ver ${SPOCK_VERSION} -p 5432 \
     && ./pgedge/pgedge um install vector \
-    && cp /lib64/libssh* /opt/pgedge/pg${PGV}/lib/ \
-    && cp /lib64/libpsl* /opt/pgedge/pg${PGV}/lib/ \
-    && cp /lib64/libbrotli* /opt/pgedge/pg${PGV}/lib/ \
     && ./pgedge/pgedge um install postgis \
     && pg_ctl stop -t 60 --wait;
 
+RUN rm -rf /opt/pgedge/ctlibs \
+    && rm -rf /opt/pgedge/hub \
+    && rm -rf /opt/pgedge/pgedge
 USER pgedge
 
 # This is still required at runtime currently, but setting it earlier causes issues with dnf

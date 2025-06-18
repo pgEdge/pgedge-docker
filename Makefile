@@ -3,7 +3,7 @@ GIT_REVISION=$(shell git rev-parse --short HEAD)
 
 PGVS=15 16 17
 SPOCK_VERSION=4.0.10
-BUILD_REVISION=2
+BUILD_REVISION=3
 
 IMAGE_NAME = pgedge/pgedge
 
