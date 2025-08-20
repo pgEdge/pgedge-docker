@@ -2,8 +2,8 @@
 GIT_REVISION=$(shell git rev-parse --short HEAD)
 
 PGVS=15 16 17
-SPOCK_VERSION=4.0.10
-BUILD_REVISION=3
+SPOCK_VERSION=5.0.0
+BUILD_REVISION=1
 
 IMAGE_NAME = pgedge/pgedge
 
@@ -16,7 +16,7 @@ IMAGE_TAG ?= pg$(1)_$(SPOCK_VERSION)-$(BUILD_REVISION)
 IMAGE_TAG_LATEST ?= pg$(1)-latest
 IMAGE_TAG_LOCAL ?= pg$(1)-$(GIT_REVISION)-$(ARCH)
 BUILDER_NAME = pgedge-builder
-REPO ?= https://pgedge-download.s3.amazonaws.com/REPO
+REPO ?= https://downloads.pgedge.com/platform/repos/download
 DOCKER_BUILDX = docker buildx build --builder $(BUILDER_NAME) --platform linux/amd64,linux/arm64
 
 .PHONY: build
@@ -25,7 +25,7 @@ build: $(foreach n,$(PGVS),build-pg$(n))
 define BUILD_PGV
 .PHONY: build-pg$(1)
 build-pg$(1):
-	docker build $(PLATFORM_ARG) --build-arg PGV=$(1) --build-arg REPO=$(REPO) -t $(IMAGE_NAME):$(IMAGE_TAG_LOCAL) .
+	docker build $(PLATFORM_ARG) --build-arg PGV=$(1) --build-arg REPO=$(REPO) --build-arg SPOCK_VERSION=$(SPOCK_VERSION) -t $(IMAGE_NAME):$(IMAGE_TAG_LOCAL) .
 endef
 
 $(foreach n,$(PGVS),$(eval $(call BUILD_PGV,$n)))
@@ -45,7 +45,7 @@ buildx: $(foreach n,$(PGVS),buildx-pg$(n))
 define BUILDX_PGV
 .PHONY: buildx-pg$(1)
 buildx-pg$(1):
-	$(DOCKER_BUILDX) --build-arg PGV=$(1) --build-arg REPO=$(REPO) -t $(IMAGE_NAME):$(call IMAGE_TAG,$(1)) -t $(IMAGE_NAME):$(call IMAGE_TAG_LATEST,$(1)) --no-cache $(if $(PUSH),--push,) .
+	$(DOCKER_BUILDX) --build-arg PGV=$(1) --build-arg REPO=$(REPO) --build-arg SPOCK_VERSION=$(SPOCK_VERSION) -t $(IMAGE_NAME):$(call IMAGE_TAG,$(1)) -t $(IMAGE_NAME):$(call IMAGE_TAG_LATEST,$(1)) --no-cache $(if $(PUSH),--push,) .
 endef
 
 $(foreach n,$(PGVS),$(eval $(call BUILDX_PGV,$n)))

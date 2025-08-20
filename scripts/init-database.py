@@ -457,50 +457,86 @@ def init_peer_spock_subscriptions(db_info: DatabaseInfo, drop_existing: bool = F
                 )
                 info("subscribed to peer:", peer["name"])
 
+def enable_repair_mode():
+    return ["SELECT spock.repair_mode('True');"]
+
 def init_spock_node(db_info: DatabaseInfo, schemas: list[str]):
 
     with connect(db_info.internal_dsn, autocommit=False) as conn:
         with conn.cursor() as cur:
             cur.execute("SET log_statement = 'none';")
-            stmts = [
-                f"CREATE EXTENSION IF NOT EXISTS spock;",
-                f"CREATE EXTENSION IF NOT EXISTS snowflake;",
-                f"CREATE EXTENSION IF NOT EXISTS pg_stat_statements;",
-            ]
-            if "pgcat_auth" in db_info.postgres_users:
-                # supports auth_query from pgcat
-                stmts.append(f"GRANT SELECT ON pg_shadow TO pgcat_auth;")
-            for user in db_info.postgres_users.values():
-                stmts.extend(
-                    alter_user_statements(user, db_info.database_name, schemas)
+            try:
+                info("Creating spock node")
+                stmts = []
+                stmts.extend([
+                    f"CREATE EXTENSION IF NOT EXISTS spock;",
+                    f"CREATE EXTENSION IF NOT EXISTS snowflake;",
+                    f"CREATE EXTENSION IF NOT EXISTS pg_stat_statements;",
+                ])
+                stmts.extend(enable_repair_mode())
+                if "pgcat_auth" in db_info.postgres_users:
+                    # supports auth_query from pgcat
+                    stmts.append(f"GRANT SELECT ON pg_shadow TO pgcat_auth;")
+                for user in db_info.postgres_users.values():
+                    # Skip users which are superuser as they already have these permissions.
+                    if user.get("superuser", False) == True:
+                        continue
+                    stmts.extend(
+                        alter_user_statements(user, db_info.database_name, schemas)
+                    )
+                stmts.append(
+                    f"SELECT spock.node_create(node_name := '{db_info.node_name}', dsn := '{db_info.spock_dsn}') WHERE '{db_info.node_name}' NOT IN (SELECT node_name FROM spock.node);"
                 )
-            stmts.append(
-                f"SELECT spock.node_create(node_name := '{db_info.node_name}', dsn := '{db_info.spock_dsn}') WHERE '{db_info.node_name}' NOT IN (SELECT node_name FROM spock.node);"
-            )
-            for statement in stmts:
-                cur.execute(statement)
+                for statement in stmts:
+                    cur.execute(statement)
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                info(f"Error during spock node initialization: {str(e)}")
+                raise
 
-    with connect(db_info.local_dsn) as conn:
+    with connect(db_info.local_dsn, autocommit=False) as conn:
         with conn.cursor() as cur:
             cur.execute("SET log_statement = 'none';")
-            stmts = []
-            for user in db_info.postgres_users.values():
-                stmts.extend(
-                    alter_user_statements(user, db_info.database_name, ["public"])
-                )
-            for statement in stmts:
-                cur.execute(statement)
+            info("Setting up local user permissions")
+            try:
+                stmts = enable_repair_mode()
+                for user in db_info.postgres_users.values():
+                    # Skip users which are superuser as they already have these permissions.
+                    if user.get("superuser", False) == True:
+                        continue
+                    stmts.extend(
+                        alter_user_statements(user, db_info.database_name, ["public"])
+                    )
+                for statement in stmts:
+                    cur.execute(statement)
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                info(f"Error during local user permissions setup: {str(e)}")
+                raise
 
     with connect(db_info.internal_dsn, autocommit=False) as conn:
         with conn.cursor() as cur:
             cur.execute("SET log_statement = 'none';")
-            stmts = []
-            for user in db_info.postgres_users.values():
-                stmts.extend(
-                    alter_user_statements(user, db_info.database_name, schemas)
-                )
-            for statement in stmts:
-                cur.execute(statement)
+            info("Setting up internal user permissions")
+            try:
+                stmts = enable_repair_mode()
+                for user in db_info.postgres_users.values():
+                    # Skip users which are superuser as they already have these permissions.
+                    if user.get("superuser", False) == True:
+                        continue
+                    stmts.extend(
+                        alter_user_statements(user, db_info.database_name, schemas)
+                    )
+                for statement in stmts:
+                    cur.execute(statement)
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                info(f"Error during internal user permissions setup: {str(e)}")
+                raise
+
 
 
 def main():

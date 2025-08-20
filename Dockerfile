@@ -73,9 +73,9 @@ ENV INIT_PASSWORD=${INIT_PASSWORD}
 
 # Postgres verion to install
 ARG PGV="16"
-ARG REPO="https://pgedge-download.s3.amazonaws.com/REPO"
+ARG REPO="https://downloads.pgedge.com/platform/repos/download"
 ARG PGEDGE_INSTALL_URL="${REPO}/install.py"
-ARG SPOCK_VERSION="4.0.10"
+ARG SPOCK_VERSION="5.0.0"
 
 # Install pgEdge Postgres binaries and pgvector
 ENV PGV=${PGV}
