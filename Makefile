@@ -2,7 +2,7 @@
 GIT_REVISION=$(shell git rev-parse --short HEAD)
 
 PGVS=15 16 17
-SPOCK_VERSION=5.0.0
+SPOCK_VERSION=5.0.1
 BUILD_REVISION=1
 
 IMAGE_NAME = pgedge/pgedge

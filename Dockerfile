@@ -76,6 +76,8 @@ ARG PGV="16"
 ARG REPO="https://downloads.pgedge.com/platform/repos/download"
 ARG PGEDGE_INSTALL_URL="${REPO}/install.py"
 ARG SPOCK_VERSION="5.0.0"
+ARG VECTOR_VERSION="0.8.0-2"
+ARG POSTGIS_VERSION="3.5.3-1"
 
 # Install pgEdge Postgres binaries and pgvector
 ENV PGV=${PGV}
@@ -84,8 +86,8 @@ ENV PGDATA="/opt/pgedge/data/pg${PGV}"
 ENV PATH="/opt/pgedge/pg${PGV}/bin:/opt/pgedge:${PATH}"
 RUN python3 -c "$(curl -fsSL ${PGEDGE_INSTALL_URL})" skipcache
 RUN ./pgedge/pgedge setup -U ${INIT_USERNAME} -d ${INIT_DATABASE} -P ${INIT_PASSWORD} --pg_ver ${PGV} --spock_ver ${SPOCK_VERSION} -p 5432 \
-    && ./pgedge/pgedge um install vector \
-    && ./pgedge/pgedge um install postgis \
+    && ./pgedge/pgedge install vector ${VECTOR_VERSION} \
+    && ./pgedge/pgedge install postgis ${POSTGIS_VERSION} \
     && pg_ctl stop -t 60 --wait;
 
 RUN rm -rf /opt/pgedge/ctlibs \
