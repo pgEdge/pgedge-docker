@@ -1,10 +1,10 @@
-# pgEdge Docker
+# pgEdge Distributed Postgres Dockerfile
 
 This repository contains the Dockerfile used to build
 [pgedge/pgedge](https://hub.docker.com/repository/docker/pgedge/pgedge)
 on Docker Hub.
 
-See the example commands below for running pgEdge containers in Docker. You will
+See the example commands below for running pgEdge Distributed Postgres in Docker. You will
 need to provide a JSON configuration file that specifies the database nodes and
 users.
 
