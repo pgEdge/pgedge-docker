@@ -1,6 +1,5 @@
 > [!IMPORTANT]  
 > This repository is no longer actively maintained.
-> New container images using this approach will no longer be published on Docker Hub. 
 >  
 > We've launched new open-source container images and various components you can use to deploy and manage Postgres with containers:  
 > - [**pgEdge Enterprise Postgres Images**](https://github.com/pgEdge/postgres-images) - Postgres Container images built from pgEdge Enterprise packages.
