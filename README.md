@@ -1,3 +1,11 @@
+> [!IMPORTANT]  
+> This repository is no longer actively maintained.
+>  
+> We've launched new open-source container images and various components you can use to deploy and manage Postgres with containers:  
+> - [**pgEdge Enterprise Postgres Images**](https://github.com/pgEdge/postgres-images) - Postgres Container images built from pgEdge Enterprise packages.
+> - [**pgEdge Helm Chart**](https://github.com/pgEdge/pgedge-helm) - Deploy single node or fully-distributed Postgres on Kubernetes.
+> - [**pgEdge Control Plane**](https://github.com/pgEdge/control-plane) - A distributed application that provides a declarative API to deploy and manage Postgres databases.
+
 # pgEdge Distributed Postgres Dockerfile
 
 This repository contains the Dockerfile used to build
